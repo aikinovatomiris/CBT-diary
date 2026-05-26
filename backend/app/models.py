@@ -27,8 +27,6 @@ class User(Base):
 
     role = Column(String, default="user", nullable=False)
 
-    # Для обычных users используется стиль ИИ-ассистента.
-    # Для therapist/admin можно хранить NULL.
     assistant_style = Column(String, default="supportive", nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

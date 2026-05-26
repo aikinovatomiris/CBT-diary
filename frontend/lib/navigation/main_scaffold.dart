@@ -95,16 +95,6 @@ class MainScaffold extends StatelessWidget {
             route: AppRoutes.adminTherapists,
           ),
           _MainNavItem(
-            label: 'Пользователи',
-            icon: Icons.people_rounded,
-            route: AppRoutes.adminUsers,
-          ),
-          _MainNavItem(
-            label: 'Статистика',
-            icon: Icons.insights_rounded,
-            route: AppRoutes.adminStatistics,
-          ),
-          _MainNavItem(
             label: 'Профиль',
             icon: Icons.person_rounded,
             route: AppRoutes.profile,
@@ -114,21 +104,46 @@ class MainScaffold extends StatelessWidget {
   }
 
   int _currentIndex(List<_MainNavItem> items) {
-    final index = items.indexWhere((item) {
-      if (item.route == AppRoutes.home) {
-        return currentLocation == AppRoutes.home;
+    final currentPath = _normalizeLocation(currentLocation);
+
+    int selectedIndex = -1;
+    int selectedRouteLength = -1;
+
+    for (int i = 0; i < items.length; i++) {
+      final route = items[i].route;
+
+      final isExactMatch = currentPath == route;
+      final isNestedMatch = currentPath.startsWith('$route/');
+
+      if ((isExactMatch || isNestedMatch) &&
+          route.length > selectedRouteLength) {
+        selectedIndex = i;
+        selectedRouteLength = route.length;
       }
+    }
 
-      return currentLocation.startsWith(item.route);
-    });
+    return selectedIndex == -1 ? 0 : selectedIndex;
+  }
 
-    return index == -1 ? 0 : index;
+  String _normalizeLocation(String location) {
+    final uri = Uri.tryParse(location);
+
+    if (uri == null) {
+      return location;
+    }
+
+    if (uri.path.isEmpty) {
+      return location;
+    }
+
+    return uri.path;
   }
 
   void _onTap(BuildContext context, List<_MainNavItem> items, int index) {
     final selectedRoute = items[index].route;
+    final currentPath = _normalizeLocation(currentLocation);
 
-    if (currentLocation == selectedRoute) return;
+    if (currentPath == selectedRoute) return;
 
     context.go(selectedRoute);
   }

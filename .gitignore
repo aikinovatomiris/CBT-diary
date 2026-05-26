@@ -209,3 +209,4 @@ pnpm-debug.log*
 docker-compose.override.yml
 .docker/
 
+backend/uploads/ 

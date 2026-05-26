@@ -1,5 +1,8 @@
 import 'package:go_router/go_router.dart';
 
+import '../screens/admin_dashboard_screen.dart';
+import '../screens/admin_pending_therapists_screen.dart';
+import '../screens/admin_therapist_detail_screen.dart';
 import '../screens/analytics_screen.dart';
 import '../screens/assistant_settings_screen.dart';
 import '../screens/change_password_screen.dart';
@@ -55,7 +58,6 @@ final GoRouter appRouter = GoRouter(
         );
       },
       routes: [
-        // User tabs
         GoRoute(
           path: AppRoutes.home,
           builder: (context, state) => const HomeScreen(),
@@ -77,7 +79,6 @@ final GoRouter appRouter = GoRouter(
           builder: (context, state) => const ProfileScreen(),
         ),
 
-        // Therapist tabs
         GoRoute(
           path: AppRoutes.therapistHome,
           builder: (context, state) => const RolePlaceholderScreen(
@@ -97,34 +98,17 @@ final GoRouter appRouter = GoRouter(
           ),
         ),
 
-        // Admin tabs
         GoRoute(
           path: AppRoutes.adminHome,
-          builder: (context, state) => const RolePlaceholderScreen(
-            title: 'Админ',
-            description: 'Главный экран администратора.',
-          ),
+          builder: (context, state) => const AdminDashboardScreen(),
         ),
         GoRoute(
           path: AppRoutes.adminTherapists,
-          builder: (context, state) => const RolePlaceholderScreen(
-            title: 'Терапевты',
-            description: 'Здесь будет управление терапевтами.',
-          ),
-        ),
-        GoRoute(
-          path: AppRoutes.adminUsers,
-          builder: (context, state) => const RolePlaceholderScreen(
-            title: 'Пользователи',
-            description: 'Здесь будет управление пользователями.',
-          ),
+          builder: (context, state) => const AdminPendingTherapistsScreen(),
         ),
         GoRoute(
           path: AppRoutes.adminStatistics,
-          builder: (context, state) => const RolePlaceholderScreen(
-            title: 'Статистика',
-            description: 'Здесь будет статистика приложения.',
-          ),
+          builder: (context, state) => const AdminDashboardScreen(),
         ),
       ],
     ),
@@ -139,7 +123,6 @@ final GoRouter appRouter = GoRouter(
         );
       },
     ),
-
     GoRoute(
       path: AppRoutes.diaryDetail,
       builder: (context, state) {
@@ -150,22 +133,18 @@ final GoRouter appRouter = GoRouter(
         );
       },
     ),
-
     GoRoute(
       path: AppRoutes.analytics,
       builder: (context, state) => const AnalyticsScreen(),
     ),
-
     GoRoute(
       path: AppRoutes.assistantSettings,
       builder: (context, state) => const AssistantSettingsScreen(),
     ),
-
     GoRoute(
       path: AppRoutes.changePassword,
       builder: (context, state) => const ChangePasswordScreen(),
     ),
-
     GoRoute(
       path: AppRoutes.practiceDetail,
       builder: (context, state) {
@@ -176,7 +155,6 @@ final GoRouter appRouter = GoRouter(
         );
       },
     ),
-
     GoRoute(
       path: AppRoutes.therapistDetail,
       builder: (context, state) {
@@ -187,7 +165,16 @@ final GoRouter appRouter = GoRouter(
         );
       },
     ),
+    GoRoute(
+      path: AppRoutes.adminTherapistDetail,
+      builder: (context, state) {
+        final id = state.pathParameters['id'];
 
+        return AdminTherapistDetailScreen(
+          profileId: id,
+        );
+      },
+    ),
     GoRoute(
       path: AppRoutes.exportPreview,
       builder: (context, state) {

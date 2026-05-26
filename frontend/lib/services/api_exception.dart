@@ -15,12 +15,6 @@ class ApiException implements Exception {
     final statusCode = error.response?.statusCode;
     final data = error.response?.data;
 
-    // ============================================================
-    // 401 Unauthorized
-    // Backend security.py возвращает 401, если JWT невалидный,
-    // просроченный или отсутствует.
-    // ============================================================
-
     if (statusCode == 401) {
       return ApiException(
         message: 'Ошибка авторизации. Пожалуйста, войдите снова.',
@@ -29,12 +23,13 @@ class ApiException implements Exception {
       );
     }
 
-    // ============================================================
-    // Backend FastAPI часто возвращает:
-    // {"detail": "..."}
-    // или список ошибок валидации.
-    // Здесь пробуем достать понятное сообщение.
-    // ============================================================
+    if (statusCode == 403) {
+      return ApiException(
+        message: 'У вас нет прав для выполнения этого действия.',
+        statusCode: statusCode,
+        data: data,
+      );
+    }
 
     final backendMessage = _extractBackendMessage(data);
 
@@ -45,10 +40,6 @@ class ApiException implements Exception {
         data: data,
       );
     }
-
-    // ============================================================
-    // Network / timeout errors
-    // ============================================================
 
     switch (error.type) {
       case DioExceptionType.connectionTimeout:
@@ -124,16 +115,6 @@ class ApiException implements Exception {
         return detail;
       }
 
-      // FastAPI validation error:
-      // {
-      //   "detail": [
-      //     {
-      //       "loc": [...],
-      //       "msg": "...",
-      //       "type": "..."
-      //     }
-      //   ]
-      // }
       if (detail is List && detail.isNotEmpty) {
         final firstError = detail.first;
 

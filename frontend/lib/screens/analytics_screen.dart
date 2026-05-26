@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../models/analytics_distortion_model.dart';
-import '../models/analytics_summary_model.dart';
-import '../models/analytics_technique_model.dart';
+import '../models/analytics_model.dart';
 import '../services/analytics_service.dart';
 import '../services/api_exception.dart';
 import '../theme/app_radius.dart';

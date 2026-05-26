@@ -31,6 +31,7 @@ class AppRoutes {
   // Admin routes
   static const String adminHome = '/admin';
   static const String adminTherapists = '/admin/therapists';
+  static const String adminTherapistDetail = '/admin/therapists/:id';
   static const String adminUsers = '/admin/users';
   static const String adminStatistics = '/admin/statistics';
 }

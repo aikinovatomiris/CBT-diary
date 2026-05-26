@@ -1,6 +1,4 @@
-import '../models/analytics_distortion_model.dart';
-import '../models/analytics_summary_model.dart';
-import '../models/analytics_technique_model.dart';
+import '../models/analytics_model.dart';
 import 'api_client.dart';
 import 'api_exception.dart';
 

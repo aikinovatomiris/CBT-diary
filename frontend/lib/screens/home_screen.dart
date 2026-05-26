@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../models/analytics_summary_model.dart';
+import '../models/analytics_model.dart';
 import '../models/cbt_session_model.dart';
 import '../models/diary_entry_model.dart';
 import '../models/user_model.dart';
