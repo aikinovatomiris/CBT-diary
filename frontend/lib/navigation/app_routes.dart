@@ -1,0 +1,34 @@
+class AppRoutes {
+  AppRoutes._();
+
+  static const String splash = '/splash';
+  static const String onboarding = '/onboarding';
+  static const String login = '/login';
+  static const String register = '/register';
+  static const String registerTherapist = '/register-therapist';
+
+  // User routes
+  static const String home = '/home';
+  static const String session = '/session';
+  static const String chat = '/chat';
+  static const String diary = '/diary';
+  static const String diaryDetail = '/diary/:id';
+  static const String analytics = '/analytics';
+  static const String practices = '/practices';
+  static const String practiceDetail = '/practices/:id';
+  static const String profile = '/profile';
+  static const String assistantSettings = '/assistant-settings';
+  static const String changePassword = '/change-password';
+  static const String exportPreview = '/export-preview';
+
+  // Therapist routes
+  static const String therapistHome = '/therapist-home';
+  static const String therapistCard = '/therapist-card';
+  static const String therapistMessages = '/therapist-messages';
+
+  // Admin routes
+  static const String adminHome = '/admin';
+  static const String adminTherapists = '/admin/therapists';
+  static const String adminUsers = '/admin/users';
+  static const String adminStatistics = '/admin/statistics';
+}
