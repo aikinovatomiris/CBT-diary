@@ -93,6 +93,8 @@ class TherapistProfile(Base):
     city = Column(Text, nullable=True)
     online_available = Column(Boolean, default=True, nullable=False)
 
+    photo_path = Column(Text, nullable=True)
+
     status = Column(String, default="draft", nullable=False)
     rejection_reason = Column(Text, nullable=True)
 
@@ -114,6 +116,18 @@ class TherapistProfile(Base):
         back_populates="therapist_profile",
         cascade="all, delete-orphan",
     )
+
+    @property
+    def photo_url(self) -> str | None:
+        if not self.photo_path:
+            return None
+
+        normalized_path = self.photo_path.replace("\\", "/")
+
+        if normalized_path.startswith("/"):
+            return normalized_path
+
+        return f"/{normalized_path}"
 
 
 class TherapistCertificate(Base):

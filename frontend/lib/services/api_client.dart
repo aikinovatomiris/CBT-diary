@@ -20,12 +20,6 @@ class ApiClient {
     ),
   )..interceptors.add(
       InterceptorsWrapper(
-        // ============================================================
-        // REQUEST INTERCEPTOR
-        // Перед каждым запросом проверяем, есть ли JWT token.
-        // Если есть — добавляем:
-        // Authorization: Bearer <token>
-        // ============================================================
 
         onRequest: (options, handler) async {
           final token = await TokenStorage.getToken();
@@ -36,12 +30,6 @@ class ApiClient {
 
           handler.next(options);
         },
-
-        // ============================================================
-        // ERROR INTERCEPTOR
-        // Если backend вернул 401 — очищаем token.
-        // Потом передаём ошибку дальше, чтобы service/UI могли её обработать.
-        // ============================================================
 
         onError: (error, handler) async {
           if (error.response?.statusCode == 401) {

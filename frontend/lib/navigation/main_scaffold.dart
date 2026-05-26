@@ -32,9 +32,9 @@ class MainScaffold extends StatelessWidget {
             route: AppRoutes.home,
           ),
           _MainNavItem(
-            label: 'Сессия',
-            icon: Icons.chat_bubble_rounded,
-            route: AppRoutes.session,
+            label: 'Практики',
+            icon: Icons.self_improvement_rounded,
+            route: AppRoutes.practices,
           ),
           _MainNavItem(
             label: 'Дневник',
@@ -42,9 +42,9 @@ class MainScaffold extends StatelessWidget {
             route: AppRoutes.diary,
           ),
           _MainNavItem(
-            label: 'Практики',
-            icon: Icons.self_improvement_rounded,
-            route: AppRoutes.practices,
+            label: 'Специалисты',
+            icon: Icons.psychology_rounded,
+            route: AppRoutes.therapistCatalog,
           ),
           _MainNavItem(
             label: 'Профиль',

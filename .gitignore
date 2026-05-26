@@ -89,7 +89,6 @@ alembic/versions/__pycache__/
 # ============================================================
 
 frontend/lib/utils/constants.dart
-
 frontend/.dart_tool/
 frontend/.flutter-plugins
 frontend/.flutter-plugins-dependencies

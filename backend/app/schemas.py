@@ -105,6 +105,8 @@ class TherapistProfileResponse(BaseModel):
     city: Optional[str] = None
     online_available: bool
 
+    photo_url: Optional[str] = None
+
     status: str
     rejection_reason: Optional[str] = None
 
@@ -160,6 +162,8 @@ class PublicTherapistProfileResponse(BaseModel):
     city: Optional[str] = None
     online_available: bool
 
+    photo_url: Optional[str] = None
+
     created_at: datetime
 
 
@@ -194,6 +198,8 @@ class AdminTherapistProfileListItem(BaseModel):
 
     city: Optional[str] = None
     online_available: bool
+    
+    photo_url: Optional[str] = None
 
     status: str
     rejection_reason: Optional[str] = None
@@ -220,6 +226,8 @@ class AdminTherapistProfileDetail(BaseModel):
 
     city: Optional[str] = None
     online_available: bool
+    
+    photo_url: Optional[str] = None
 
     status: str
     rejection_reason: Optional[str] = None

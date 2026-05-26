@@ -24,7 +24,10 @@ router = APIRouter(
 
 
 CERTIFICATES_UPLOAD_DIR = Path("uploads/certificates")
+THERAPIST_PHOTOS_UPLOAD_DIR = Path("uploads/therapist_photos")
+
 ALLOWED_CERTIFICATE_EXTENSIONS = {"pdf", "jpg", "jpeg", "png"}
+ALLOWED_PHOTO_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
 
 
 def get_file_extension(filename: str) -> str:
@@ -47,6 +50,22 @@ def validate_certificate_file(file: UploadFile):
         )
 
 
+def validate_photo_file(file: UploadFile):
+    if not file.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Файл должен иметь имя",
+        )
+
+    extension = get_file_extension(file.filename)
+
+    if extension not in ALLOWED_PHOTO_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Можно загружать только изображения jpg, jpeg, png или webp",
+        )
+
+
 def save_certificate_file(file: UploadFile) -> str:
     validate_certificate_file(file)
 
@@ -59,6 +78,25 @@ def save_certificate_file(file: UploadFile) -> str:
     unique_filename = f"{uuid.uuid4()}.{extension}"
 
     file_path = CERTIFICATES_UPLOAD_DIR / unique_filename
+
+    with file_path.open("wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    return str(file_path).replace("\\", "/")
+
+
+def save_therapist_photo_file(file: UploadFile) -> str:
+    validate_photo_file(file)
+
+    THERAPIST_PHOTOS_UPLOAD_DIR.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    extension = get_file_extension(file.filename)
+    unique_filename = f"{uuid.uuid4()}.{extension}"
+
+    file_path = THERAPIST_PHOTOS_UPLOAD_DIR / unique_filename
 
     with file_path.open("wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
@@ -138,6 +176,31 @@ def update_my_therapist_profile(
     if profile.status == "rejected":
         profile.status = "draft"
         profile.rejection_reason = None
+
+    db.commit()
+    db.refresh(profile)
+
+    return profile
+
+
+@router.post(
+    "/profile/photo",
+    response_model=TherapistProfileResponse,
+    status_code=status.HTTP_200_OK,
+)
+def upload_my_therapist_profile_photo(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_therapist),
+):
+    profile = get_my_therapist_profile_or_404(
+        db=db,
+        current_user=current_user,
+    )
+
+    saved_photo_path = save_therapist_photo_file(file)
+
+    profile.photo_path = saved_photo_path
 
     db.commit()
     db.refresh(profile)

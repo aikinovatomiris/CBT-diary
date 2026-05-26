@@ -16,6 +16,8 @@ class AppRoutes {
   static const String analytics = '/analytics';
   static const String practices = '/practices';
   static const String practiceDetail = '/practices/:id';
+  static const String therapistCatalog = '/specialists';
+  static const String therapistDetail = '/specialists/:id';
   static const String profile = '/profile';
   static const String assistantSettings = '/assistant-settings';
   static const String changePassword = '/change-password';

@@ -16,6 +16,9 @@ import '../screens/profile_screen.dart';
 import '../screens/register_screen.dart';
 import '../screens/role_placeholder_screen.dart';
 import '../screens/splash_screen.dart';
+import '../screens/therapist_catalog_screen.dart';
+import '../screens/therapist_detail_screen.dart';
+import '../screens/therapist_profile_screen.dart';
 import '../screens/therapist_register_screen.dart';
 import 'app_routes.dart';
 import 'main_scaffold.dart';
@@ -58,20 +61,16 @@ final GoRouter appRouter = GoRouter(
           builder: (context, state) => const HomeScreen(),
         ),
         GoRoute(
-          path: AppRoutes.session,
-          builder: (context, state) => const RolePlaceholderScreen(
-            title: 'Сессия',
-            description:
-                'Здесь будет быстрый доступ к созданию и продолжению КПТ-сессий.',
-          ),
-        ),
-        GoRoute(
           path: AppRoutes.diary,
           builder: (context, state) => const DiaryListScreen(),
         ),
         GoRoute(
           path: AppRoutes.practices,
           builder: (context, state) => const PracticesScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.therapistCatalog,
+          builder: (context, state) => const TherapistCatalogScreen(),
         ),
         GoRoute(
           path: AppRoutes.profile,
@@ -88,10 +87,7 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: AppRoutes.therapistCard,
-          builder: (context, state) => const RolePlaceholderScreen(
-            title: 'Анкета',
-            description: 'Здесь будет анкета специалиста.',
-          ),
+          builder: (context, state) => const TherapistProfileScreen(),
         ),
         GoRoute(
           path: AppRoutes.therapistMessages,
@@ -177,6 +173,17 @@ final GoRouter appRouter = GoRouter(
 
         return PracticeDetailScreen(
           practiceId: id,
+        );
+      },
+    ),
+
+    GoRoute(
+      path: AppRoutes.therapistDetail,
+      builder: (context, state) {
+        final id = state.pathParameters['id'];
+
+        return TherapistDetailScreen(
+          profileId: id,
         );
       },
     ),
