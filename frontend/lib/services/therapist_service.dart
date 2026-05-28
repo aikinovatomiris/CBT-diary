@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/therapist_certificate_model.dart';
@@ -9,10 +10,6 @@ import 'api_exception.dart';
 
 class TherapistService {
   TherapistService._();
-
-  // ============================================================
-  // GET /therapist/profile
-  // ============================================================
 
   static Future<TherapistProfileModel> getMyProfile() async {
     try {
@@ -29,59 +26,34 @@ class TherapistService {
     }
   }
 
-  // ============================================================
-  // PATCH /therapist/profile
-  // ============================================================
-
   static Future<TherapistProfileModel> updateMyProfile({
-    String? fullName,
-    String? qualification,
-    List<String>? therapyApproaches,
-    List<String>? specializations,
-    String? description,
-    String? price,
-    Map<String, dynamic>? contacts,
-    String? city,
-    bool? onlineAvailable,
+    required String fullName,
+    required String qualification,
+    required String therapyApproaches,
+    required String specializations,
+    required String description,
+    required String price,
+    required Map<String, dynamic> contacts,
+    required String city,
+    required bool onlineAvailable,
   }) async {
     try {
-      final data = <String, dynamic>{};
+      final data = <String, dynamic>{
+        'full_name': fullName.trim(),
+        'qualification': qualification.trim(),
+        'therapy_approaches': therapyApproaches.trim().isEmpty
+            ? null
+            : therapyApproaches.trim(),
+        'specializations':
+            specializations.trim().isEmpty ? null : specializations.trim(),
+        'description': description.trim().isEmpty ? null : description.trim(),
+        'price': price.trim().isEmpty ? null : price.trim(),
+        'contacts': contacts.isEmpty ? null : contacts,
+        'city': city.trim().isEmpty ? null : city.trim(),
+        'online_available': onlineAvailable,
+      };
 
-      if (fullName != null) {
-        data['full_name'] = fullName.trim();
-      }
-
-      if (qualification != null) {
-        data['qualification'] = qualification.trim();
-      }
-
-      if (therapyApproaches != null) {
-        data['therapy_approaches'] = therapyApproaches;
-      }
-
-      if (specializations != null) {
-        data['specializations'] = specializations;
-      }
-
-      if (description != null) {
-        data['description'] = description.trim();
-      }
-
-      if (price != null) {
-        data['price'] = price.trim();
-      }
-
-      if (contacts != null) {
-        data['contacts'] = contacts;
-      }
-
-      if (city != null) {
-        data['city'] = city.trim();
-      }
-
-      if (onlineAvailable != null) {
-        data['online_available'] = onlineAvailable;
-      }
+      debugPrint('PATCH /therapist/profile payload: $data');
 
       final response = await ApiClient.patch(
         '/therapist/profile',
@@ -94,23 +66,16 @@ class TherapistService {
       rethrow;
     } catch (_) {
       throw const ApiException(
-        message: 'Не удалось обновить анкету специалиста.',
+        message: 'Не удалось сохранить анкету специалиста.',
       );
     }
   }
 
-  // ============================================================
-  // POST /therapist/profile/submit
-  // ============================================================
-
   static Future<TherapistProfileModel> submitProfile() async {
     try {
-      final response = await ApiClient.post(
-        '/therapist/profile/submit',
-      );
+      await ApiClient.post('/therapist/profile/submit');
 
-      final data = _safeMap(response.data);
-      return TherapistProfileModel.fromJson(data);
+      return getMyProfile();
     } on ApiException {
       rethrow;
     } catch (_) {
@@ -119,10 +84,6 @@ class TherapistService {
       );
     }
   }
-
-  // ============================================================
-  // GET /therapist/profile/certificates
-  // ============================================================
 
   static Future<List<TherapistCertificateModel>> getMyCertificates() async {
     try {
@@ -133,14 +94,11 @@ class TherapistService {
       final data = response.data;
 
       if (data is List) {
-        return data
-            .whereType<Map>()
-            .map((item) {
-              return TherapistCertificateModel.fromJson(
-                Map<String, dynamic>.from(item),
-              );
-            })
-            .toList();
+        return data.whereType<Map>().map((item) {
+          return TherapistCertificateModel.fromJson(
+            Map<String, dynamic>.from(item),
+          );
+        }).toList();
       }
 
       throw const ApiException(
@@ -154,10 +112,6 @@ class TherapistService {
       );
     }
   }
-
-  // ============================================================
-  // POST /therapist/profile/certificates
-  // ============================================================
 
   static Future<TherapistCertificateModel> uploadCertificate(
     PlatformFile file,
@@ -189,10 +143,6 @@ class TherapistService {
       );
     }
   }
-
-  // ============================================================
-  // POST /therapist/profile/photo
-  // ============================================================
 
   static Future<TherapistProfileModel> uploadProfilePhoto(
     XFile file,
@@ -228,10 +178,6 @@ class TherapistService {
     }
   }
 
-  // ============================================================
-  // GET /therapists
-  // ============================================================
-
   static Future<List<TherapistProfileModel>> getApprovedTherapists({
     String? city,
     String? specialization,
@@ -260,14 +206,11 @@ class TherapistService {
       final data = response.data;
 
       if (data is List) {
-        return data
-            .whereType<Map>()
-            .map((item) {
-              return TherapistProfileModel.fromJson(
-                Map<String, dynamic>.from(item),
-              );
-            })
-            .toList();
+        return data.whereType<Map>().map((item) {
+          return TherapistProfileModel.fromJson(
+            Map<String, dynamic>.from(item),
+          );
+        }).toList();
       }
 
       throw const ApiException(
@@ -282,17 +225,11 @@ class TherapistService {
     }
   }
 
-  // ============================================================
-  // GET /therapists/{profile_id}
-  // ============================================================
-
   static Future<TherapistProfileModel> getTherapistById(
     int profileId,
   ) async {
     try {
-      final response = await ApiClient.get(
-        '/therapists/$profileId',
-      );
+      final response = await ApiClient.get('/therapists/$profileId');
 
       final data = _safeMap(response.data);
       return TherapistProfileModel.fromJson(data);
@@ -304,10 +241,6 @@ class TherapistService {
       );
     }
   }
-
-  // ============================================================
-  // Helpers
-  // ============================================================
 
   static Future<MultipartFile> _multipartFileFromPlatformFile(
     PlatformFile file,

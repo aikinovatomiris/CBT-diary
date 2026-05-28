@@ -3,12 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../data/practice_data.dart';
-import '../models/practice_model.dart';
-import '../theme/app_spacing.dart';
-import '../widgets/app_button.dart';
-import '../widgets/app_card.dart';
-import '../widgets/app_error_view.dart';
+import '../../data/practice_data.dart';
+import '../../models/practice_model.dart';
+import '../../theme/app_spacing.dart';
+import '../../widgets/app_button.dart';
+import '../../widgets/app_card.dart';
+import '../../widgets/app_error_view.dart';
 
 class PracticeDetailScreen extends StatefulWidget {
   final String? practiceId;

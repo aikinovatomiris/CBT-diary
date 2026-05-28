@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../navigation/app_routes.dart';
-import '../services/api_exception.dart';
-import '../services/auth_service.dart';
-import '../theme/app_spacing.dart';
-import '../widgets/app_button.dart';
-import '../widgets/app_card.dart';
-import '../widgets/app_text_field.dart';
+import '../../navigation/app_routes.dart';
+import '../../services/api_exception.dart';
+import '../../services/auth_service.dart';
+import '../../theme/app_spacing.dart';
+import '../../widgets/app_button.dart';
+import '../../widgets/app_card.dart';
+import '../../widgets/app_text_field.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});

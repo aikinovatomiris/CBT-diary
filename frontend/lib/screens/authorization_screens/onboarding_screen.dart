@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../navigation/app_routes.dart';
-import '../theme/app_spacing.dart';
-import '../widgets/app_button.dart';
-import '../widgets/app_card.dart';
+import '../../navigation/app_routes.dart';
+import '../../theme/app_spacing.dart';
+import '../../widgets/app_button.dart';
+import '../../widgets/app_card.dart';
 
 class OnboardingScreen extends StatelessWidget {
   const OnboardingScreen({super.key});

@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../models/user_model.dart';
-import '../navigation/app_routes.dart';
-import '../services/api_exception.dart';
-import '../services/auth_service.dart';
-import '../theme/app_spacing.dart';
-import '../utils/theme_controller.dart';
-import '../widgets/app_button.dart';
-import '../widgets/app_card.dart';
-import '../widgets/app_error_view.dart';
-import '../widgets/app_loading.dart';
+import '../../models/user_model.dart';
+import '../../navigation/app_routes.dart';
+import '../../services/api_exception.dart';
+import '../../services/auth_service.dart';
+import '../../theme/app_spacing.dart';
+import '../../utils/theme_controller.dart';
+import '../../widgets/app_button.dart';
+import '../../widgets/app_card.dart';
+import '../../widgets/app_error_view.dart';
+import '../../widgets/app_loading.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});

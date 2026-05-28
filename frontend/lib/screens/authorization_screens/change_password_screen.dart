@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../services/api_exception.dart';
-import '../services/profile_service.dart';
-import '../theme/app_spacing.dart';
-import '../widgets/app_button.dart';
-import '../widgets/app_card.dart';
-import '../widgets/app_text_field.dart';
+import '../../services/api_exception.dart';
+import '../../services/profile_service.dart';
+import '../../theme/app_spacing.dart';
+import '../../widgets/app_button.dart';
+import '../../widgets/app_card.dart';
+import '../../widgets/app_text_field.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});

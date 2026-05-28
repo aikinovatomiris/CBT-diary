@@ -11,9 +11,6 @@ class TherapistProfileModel {
   final List<String> specializations;
 
   final String? description;
-
-  /// Backend сейчас возвращает price как строку:
-  /// "15000 тг / 50 минут"
   final String? price;
 
   final Map<String, dynamic>? contacts;
@@ -67,6 +64,44 @@ class TherapistProfileModel {
           JsonHelpers.parseString(json['photo_path']),
       createdAt: JsonHelpers.parseDateTime(json['created_at']),
       updatedAt: JsonHelpers.parseDateTime(json['updated_at']),
+    );
+  }
+
+  TherapistProfileModel copyWith({
+    int? id,
+    int? userId,
+    String? fullName,
+    String? qualification,
+    List<String>? therapyApproaches,
+    List<String>? specializations,
+    String? description,
+    String? price,
+    Map<String, dynamic>? contacts,
+    String? city,
+    bool? onlineAvailable,
+    String? status,
+    String? rejectionReason,
+    String? photoUrl,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return TherapistProfileModel(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      fullName: fullName ?? this.fullName,
+      qualification: qualification ?? this.qualification,
+      therapyApproaches: therapyApproaches ?? this.therapyApproaches,
+      specializations: specializations ?? this.specializations,
+      description: description ?? this.description,
+      price: price ?? this.price,
+      contacts: contacts ?? this.contacts,
+      city: city ?? this.city,
+      onlineAvailable: onlineAvailable ?? this.onlineAvailable,
+      status: status ?? this.status,
+      rejectionReason: rejectionReason ?? this.rejectionReason,
+      photoUrl: photoUrl ?? this.photoUrl,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
@@ -154,5 +189,24 @@ class TherapistProfileModel {
 
   bool get isRejected {
     return status == 'rejected';
+  }
+
+  bool get isDraft {
+    return status == null || status == 'draft';
+  }
+
+  bool get isEmptyProfile {
+    final hasText = [
+      fullName,
+      qualification,
+      description,
+      price,
+      city,
+    ].any((value) => value != null && value.trim().isNotEmpty);
+
+    return !hasText &&
+        therapyApproaches.isEmpty &&
+        specializations.isEmpty &&
+        (contacts == null || contacts!.isEmpty);
   }
 }

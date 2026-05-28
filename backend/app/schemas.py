@@ -86,6 +86,13 @@ class ChangePasswordResponse(BaseModel):
 # Therapist profile schemas
 # =========================
 
+class TherapistContacts(BaseModel):
+    phone: Optional[str] = None
+    whatsapp: Optional[str] = None
+    telegram: Optional[str] = None
+    instagram: Optional[str] = None
+    email: Optional[str] = None
+
 class TherapistProfileResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -100,8 +107,7 @@ class TherapistProfileResponse(BaseModel):
     description: Optional[str] = None
     price: Optional[str] = None
 
-    contacts: Optional[Any] = None
-
+    contacts: Optional[TherapistContacts] = None
     city: Optional[str] = None
     online_available: bool
 
@@ -123,8 +129,7 @@ class TherapistProfileUpdate(BaseModel):
     description: Optional[str] = None
     price: Optional[str] = None
 
-    contacts: Optional[Any] = None
-
+    contacts: Optional[TherapistContacts] = None
     city: Optional[str] = None
     online_available: Optional[bool] = None
 
@@ -158,8 +163,7 @@ class PublicTherapistProfileResponse(BaseModel):
     description: Optional[str] = None
     price: Optional[str] = None
 
-    contacts: Optional[Any] = None
-
+    contacts: Optional[TherapistContacts] = None
     city: Optional[str] = None
     online_available: bool
 
@@ -195,8 +199,7 @@ class AdminTherapistProfileListItem(BaseModel):
     description: Optional[str] = None
     price: Optional[str] = None
 
-    contacts: Optional[Any] = None
-
+    contacts: Optional[TherapistContacts] = None
     city: Optional[str] = None
     online_available: bool
     
@@ -223,7 +226,7 @@ class AdminTherapistProfileDetail(BaseModel):
     description: Optional[str] = None
     price: Optional[str] = None
 
-    contacts: Optional[Any] = None
+    contacts: Optional[TherapistContacts] = None
 
     city: Optional[str] = None
     online_available: bool

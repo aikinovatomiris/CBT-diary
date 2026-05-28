@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../models/conversation_model.dart';
-import '../models/therapist_profile_model.dart';
-import '../models/user_model.dart';
-import '../services/api_exception.dart';
-import '../services/auth_service.dart';
-import '../services/conversation_service.dart';
-import '../services/therapist_service.dart';
-import '../theme/app_radius.dart';
-import '../theme/app_spacing.dart';
-import '../widgets/app_card.dart';
-import '../widgets/app_error_view.dart';
-import '../widgets/app_loading.dart';
+import '../../models/conversation_model.dart';
+import '../../models/user_model.dart';
+import '../../services/api_exception.dart';
+import '../../services/auth_service.dart';
+import '../../services/conversation_service.dart';
+import '../../services/therapist_service.dart';
+import '../../theme/app_radius.dart';
+import '../../theme/app_spacing.dart';
+import '../../widgets/app_card.dart';
+import '../../widgets/app_error_view.dart';
+import '../../widgets/app_loading.dart';
 
 class ConversationsListScreen extends StatefulWidget {
   const ConversationsListScreen({super.key});

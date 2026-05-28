@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../navigation/app_routes.dart';
-import '../services/auth_service.dart';
-import '../services/token_storage.dart';
-import '../utils/role_helper.dart';
-import '../widgets/app_loading.dart';
+import '../../navigation/app_routes.dart';
+import '../../services/auth_service.dart';
+import '../../services/token_storage.dart';
+import '../../utils/role_helper.dart';
+import '../../widgets/app_loading.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});

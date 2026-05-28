@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../models/diary_entry_model.dart';
-import '../theme/app_spacing.dart';
-import '../widgets/app_card.dart';
-import '../widgets/app_error_view.dart';
+import '../../models/diary_entry_model.dart';
+import '../../theme/app_spacing.dart';
+import '../../widgets/app_card.dart';
+import '../../widgets/app_error_view.dart';
 
 class SharedDiaryEntryScreen extends StatelessWidget {
   final DiaryEntryModel? entry;

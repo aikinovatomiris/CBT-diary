@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../data/practice_data.dart';
-import '../models/practice_model.dart';
-import '../theme/app_spacing.dart';
-import '../widgets/app_card.dart';
+import '../../data/practice_data.dart';
+import '../../models/practice_model.dart';
+import '../../theme/app_spacing.dart';
+import '../../widgets/app_card.dart';
 
 class PracticesScreen extends StatelessWidget {
   const PracticesScreen({super.key});

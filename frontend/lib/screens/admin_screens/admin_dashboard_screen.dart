@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../models/admin_model.dart';
-import '../services/admin_service.dart';
-import '../services/api_exception.dart';
-import '../theme/app_spacing.dart';
-import '../widgets/app_card.dart';
-import '../widgets/app_error_view.dart';
-import '../widgets/app_loading.dart';
+import '../../models/admin_model.dart';
+import '../../services/admin_service.dart';
+import '../../services/api_exception.dart';
+import '../../theme/app_spacing.dart';
+import '../../widgets/app_card.dart';
+import '../../widgets/app_error_view.dart';
+import '../../widgets/app_loading.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});

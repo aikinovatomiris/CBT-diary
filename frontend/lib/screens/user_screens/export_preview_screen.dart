@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../theme/app_spacing.dart';
-import '../widgets/app_button.dart';
-import '../widgets/app_card.dart';
+import '../../theme/app_spacing.dart';
+import '../../widgets/app_button.dart';
+import '../../widgets/app_card.dart';
 
 class ExportPreviewScreen extends StatelessWidget {
   final String text;

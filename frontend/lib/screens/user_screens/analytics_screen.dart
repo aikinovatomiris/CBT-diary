@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../models/analytics_model.dart';
-import '../services/analytics_service.dart';
-import '../services/api_exception.dart';
-import '../theme/app_radius.dart';
-import '../theme/app_spacing.dart';
-import '../widgets/app_card.dart';
-import '../widgets/app_error_view.dart';
-import '../widgets/app_loading.dart';
+import '../../models/analytics_model.dart';
+import '../../services/analytics_service.dart';
+import '../../services/api_exception.dart';
+import '../../theme/app_radius.dart';
+import '../../theme/app_spacing.dart';
+import '../../widgets/app_card.dart';
+import '../../widgets/app_error_view.dart';
+import '../../widgets/app_loading.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});

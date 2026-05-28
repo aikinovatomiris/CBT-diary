@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_spacing.dart';
-import '../widgets/app_card.dart';
+import '../../theme/app_spacing.dart';
+import '../../widgets/app_card.dart';
 
 class RolePlaceholderScreen extends StatelessWidget {
   final String title;

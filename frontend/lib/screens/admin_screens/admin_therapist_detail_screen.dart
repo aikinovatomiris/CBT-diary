@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../models/admin_model.dart';
-import '../models/therapist_certificate_model.dart';
-import '../models/therapist_profile_model.dart';
-import '../navigation/app_routes.dart';
-import '../services/admin_service.dart';
-import '../services/api_exception.dart';
-import '../theme/app_spacing.dart';
-import '../widgets/app_button.dart';
-import '../widgets/app_card.dart';
-import '../widgets/app_error_view.dart';
-import '../widgets/app_loading.dart';
+import '../../models/admin_model.dart';
+import '../../models/therapist_certificate_model.dart';
+import '../../models/therapist_profile_model.dart';
+import '../../navigation/app_routes.dart';
+import '../../services/admin_service.dart';
+import '../../services/api_exception.dart';
+import '../../theme/app_spacing.dart';
+import '../../widgets/app_button.dart';
+import '../../widgets/app_card.dart';
+import '../../widgets/app_error_view.dart';
+import '../../widgets/app_loading.dart';
 
 class AdminTherapistDetailScreen extends StatefulWidget {
   final String? profileId;
