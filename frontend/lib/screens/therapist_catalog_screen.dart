@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../models/therapist_profile_model.dart';
-import '../navigation/app_routes.dart';
 import '../services/api_exception.dart';
 import '../services/therapist_service.dart';
 import '../theme/app_radius.dart';
@@ -406,9 +405,9 @@ class _TherapistCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           _InfoLine(
             icon: Icons.payments_outlined,
-            text: therapist.price == null
+            text: therapist.price == null || therapist.price!.trim().isEmpty
                 ? 'Цена не указана'
-                : '${therapist.price!.toStringAsFixed(0)} ₸',
+                : therapist.price!.trim(),
           ),
           const SizedBox(height: AppSpacing.sm),
           _InfoLine(

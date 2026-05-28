@@ -1,11 +1,10 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../models/therapist_profile_model.dart';
 import '../services/api_exception.dart';
+import '../services/conversation_service.dart';
 import '../services/therapist_service.dart';
-import '../theme/app_radius.dart';
 import '../theme/app_spacing.dart';
 import '../utils/url_helper.dart';
 import '../widgets/app_button.dart';
@@ -29,6 +28,7 @@ class TherapistDetailScreen extends StatefulWidget {
 class _TherapistDetailScreenState extends State<TherapistDetailScreen> {
   late Future<TherapistProfileModel> _therapistFuture;
   int? _profileId;
+  bool _isStartingConversation = false;
 
   @override
   void initState() {
@@ -69,17 +69,58 @@ class _TherapistDetailScreenState extends State<TherapistDetailScreen> {
     await _therapistFuture;
   }
 
-  void _startConversation() {
+  Future<void> _startConversation(TherapistProfileModel therapist) async {
+    final therapistUserId = therapist.userId;
+
+    if (therapistUserId == null) {
+      _showSnackBar(
+        'Backend не вернул user_id специалиста. Нужен user_id, а не id анкеты.',
+      );
+      return;
+    }
+
+    setState(() {
+      _isStartingConversation = true;
+    });
+
+    try {
+      final conversation = await ConversationService.createConversation(
+        therapistUserId,
+      );
+
+      if (!mounted) return;
+
+      final conversationId = conversation.id;
+
+      if (conversationId == null) {
+        _showSnackBar('Сервер не вернул ID переписки.');
+        return;
+      }
+
+      context.push('/conversations/$conversationId');
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      _showSnackBar(error.message);
+    } catch (_) {
+      if (!mounted) return;
+      _showSnackBar('Не удалось открыть переписку со специалистом.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isStartingConversation = false;
+        });
+      }
+    }
+  }
+
+  void _showSnackBar(String message) {
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Переписка со специалистом будет добавлена позже'),
+      SnackBar(
+        content: Text(message),
       ),
     );
-
-    // TODO:
-    // Когда появятся ConversationService и endpoint POST /conversations:
-    // 1. создать conversation с этим therapist profile/user;
-    // 2. открыть ConversationDetailScreen.
   }
 
   @override
@@ -148,7 +189,8 @@ class _TherapistDetailScreenState extends State<TherapistDetailScreen> {
 
         return _TherapistDetailContent(
           therapist: therapist,
-          onMessage: _startConversation,
+          isStartingConversation: _isStartingConversation,
+          onMessage: () => _startConversation(therapist),
         );
       },
     );
@@ -157,10 +199,12 @@ class _TherapistDetailScreenState extends State<TherapistDetailScreen> {
 
 class _TherapistDetailContent extends StatelessWidget {
   final TherapistProfileModel therapist;
+  final bool isStartingConversation;
   final VoidCallback onMessage;
 
   const _TherapistDetailContent({
     required this.therapist,
+    required this.isStartingConversation,
     required this.onMessage,
   });
 
@@ -234,14 +278,13 @@ class _TherapistDetailContent extends StatelessWidget {
                           AppButton(
                             text: 'Написать специалисту',
                             icon: Icons.chat_bubble_outline_rounded,
+                            isLoading: isStartingConversation,
                             onPressed: onMessage,
                           ),
                         ],
                       ),
                     ),
-
                     const SizedBox(height: AppSpacing.lg),
-
                     _SectionCard(
                       title: 'Направления терапии',
                       content: _listText(therapist.therapyApproaches),
@@ -259,13 +302,17 @@ class _TherapistDetailContent extends StatelessWidget {
                     ),
                     _SectionCard(
                       title: 'Цена',
-                      content: therapist.price == null
-                          ? 'Цена не указана'
-                          : '${therapist.price!.toStringAsFixed(0)} ₸',
+                      content: _safeText(
+                        therapist.price,
+                        'Цена не указана',
+                      ),
                     ),
                     _SectionCard(
                       title: 'Город',
-                      content: _safeText(therapist.city, 'Город не указан'),
+                      content: _safeText(
+                        therapist.city,
+                        'Город не указан',
+                      ),
                     ),
                     _SectionCard(
                       title: 'Формат',
@@ -288,12 +335,18 @@ class _TherapistDetailContent extends StatelessWidget {
   }
 
   static String _safeText(String? value, String fallback) {
-    if (value == null || value.trim().isEmpty) return fallback;
+    if (value == null || value.trim().isEmpty) {
+      return fallback;
+    }
+
     return value.trim();
   }
 
   static String _listText(List<String> items) {
-    final filteredItems = items.where((item) => item.trim().isNotEmpty).toList();
+    final filteredItems = items
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
 
     if (filteredItems.isEmpty) {
       return 'Не заполнено';
@@ -307,13 +360,123 @@ class _TherapistDetailContent extends StatelessWidget {
       return 'Контакты не указаны';
     }
 
-    if (contacts['text'] != null &&
-        contacts['text'].toString().trim().isNotEmpty) {
-      return contacts['text'].toString().trim();
+    return _formatDynamicText(contacts);
+  }
+
+  static String _formatDynamicText(dynamic value) {
+    if (value == null) {
+      return 'Не заполнено';
     }
 
-    const encoder = JsonEncoder.withIndent('  ');
-    return encoder.convert(contacts);
+    if (value is String) {
+      final trimmed = value.trim();
+
+      if (trimmed.isEmpty) {
+        return 'Не заполнено';
+      }
+
+      return trimmed;
+    }
+
+    if (value is num || value is bool) {
+      return value.toString();
+    }
+
+    if (value is List) {
+      final items = value
+          .map(_formatDynamicText)
+          .where((item) => item.trim().isNotEmpty && item != 'Не заполнено')
+          .toList();
+
+      if (items.isEmpty) {
+        return 'Не заполнено';
+      }
+
+      return items.map((item) => '• $item').join('\n');
+    }
+
+    if (value is Map) {
+      if (value.isEmpty) {
+        return 'Не заполнено';
+      }
+
+      final rawText = value['raw_text'];
+      if (rawText != null && rawText.toString().trim().isNotEmpty) {
+        return rawText.toString().trim();
+      }
+
+      final text = value['text'];
+      if (text != null && text.toString().trim().isNotEmpty) {
+        return text.toString().trim();
+      }
+
+      final items = value['items'];
+      if (items is List && items.isNotEmpty) {
+        return _formatDynamicText(items);
+      }
+
+      final lines = <String>[];
+
+      value.forEach((key, mapValue) {
+        final formattedKey = _humanizeKey(key.toString());
+        final formattedValue = _formatDynamicText(mapValue);
+
+        if (formattedValue.trim().isEmpty || formattedValue == 'Не заполнено') {
+          return;
+        }
+
+        lines.add('$formattedKey: $formattedValue');
+      });
+
+      if (lines.isEmpty) {
+        return 'Не заполнено';
+      }
+
+      return lines.join('\n');
+    }
+
+    final fallback = value.toString().trim();
+
+    if (fallback.isEmpty || fallback == '{}' || fallback == '[]') {
+      return 'Не заполнено';
+    }
+
+    return fallback;
+  }
+
+  static String _humanizeKey(String key) {
+    switch (key) {
+      case 'telegram':
+        return 'Telegram';
+      case 'phone':
+        return 'Телефон';
+      case 'email':
+        return 'Email';
+      case 'instagram':
+        return 'Instagram';
+      case 'whatsapp':
+        return 'WhatsApp';
+      case 'website':
+        return 'Сайт';
+      case 'text':
+        return 'Текст';
+      case 'raw_text':
+        return 'Текст';
+      case 'items':
+        return 'Список';
+      default:
+        return _capitalizeFirst(key.replaceAll('_', ' '));
+    }
+  }
+
+  static String _capitalizeFirst(String value) {
+    final trimmed = value.trim();
+
+    if (trimmed.isEmpty) {
+      return trimmed;
+    }
+
+    return trimmed[0].toUpperCase() + trimmed.substring(1);
   }
 }
 

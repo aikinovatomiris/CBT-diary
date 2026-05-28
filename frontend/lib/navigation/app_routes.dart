@@ -23,6 +23,11 @@ class AppRoutes {
   static const String changePassword = '/change-password';
   static const String exportPreview = '/export-preview';
 
+  // Conversations
+  static const String conversations = '/conversations';
+  static const String conversationDetail = '/conversations/:id';
+  static const String sharedDiaryEntry = '/shared-diary-entry';
+
   // Therapist routes
   static const String therapistHome = '/therapist-home';
   static const String therapistCard = '/therapist-card';
@@ -32,6 +37,5 @@ class AppRoutes {
   static const String adminHome = '/admin';
   static const String adminTherapists = '/admin/therapists';
   static const String adminTherapistDetail = '/admin/therapists/:id';
-  static const String adminUsers = '/admin/users';
   static const String adminStatistics = '/admin/statistics';
 }

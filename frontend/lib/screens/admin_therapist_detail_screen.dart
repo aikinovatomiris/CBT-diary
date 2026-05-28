@@ -351,9 +351,9 @@ class _AdminTherapistDetailContent extends StatelessWidget {
                     ),
                     _SectionCard(
                       title: 'Цена',
-                      content: profile.price == null
+                      content: profile.price == null || profile.price!.trim().isEmpty
                           ? 'Не заполнено'
-                          : '${profile.price!.toStringAsFixed(0)} ₸',
+                          : profile.price!.trim(),
                     ),
                     _SectionCard(
                       title: 'Город',

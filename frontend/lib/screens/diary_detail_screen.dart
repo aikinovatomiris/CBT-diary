@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../models/conversation_model.dart';
 import '../models/diary_entry_model.dart';
 import '../navigation/app_routes.dart';
 import '../services/api_exception.dart';
+import '../services/conversation_service.dart';
 import '../services/diary_service.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/app_button.dart';
 import '../widgets/app_card.dart';
 import '../widgets/app_error_view.dart';
 import '../widgets/app_loading.dart';
+import '../services/therapist_service.dart';
 
 class DiaryDetailScreen extends StatefulWidget {
   final String? entryId;
@@ -162,6 +165,31 @@ class _DiaryDetailScreenState extends State<DiaryDetailScreen> {
         });
       }
     }
+  }
+
+  Future<void> _openShareBottomSheet() async {
+    final id = _entryId;
+
+    if (id == null) {
+      _showSnackBar('Не найден ID записи.');
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      builder: (bottomSheetContext) {
+        return _ShareDiaryEntryBottomSheet(
+          diaryEntryId: id,
+          onShared: () {
+            if (!mounted) return;
+
+            _showSnackBar('Запись отправлена специалисту.');
+          },
+        );
+      },
+    );
   }
 
   String _formatDate(DateTime? date) {
@@ -366,6 +394,7 @@ class _DiaryDetailScreenState extends State<DiaryDetailScreen> {
           isDeleting: _isDeleting,
           onExport: _exportEntry,
           onDelete: _deleteEntry,
+          onShare: _openShareBottomSheet,
           formatDate: _formatDate,
           safeText: _safeText,
           formatJsonField: _formatJsonField,
@@ -381,6 +410,7 @@ class _DiaryDetailContent extends StatelessWidget {
   final bool isDeleting;
   final VoidCallback onExport;
   final VoidCallback onDelete;
+  final VoidCallback onShare;
   final String Function(DateTime?) formatDate;
   final String Function(String?) safeText;
   final String Function(dynamic) formatJsonField;
@@ -391,6 +421,7 @@ class _DiaryDetailContent extends StatelessWidget {
     required this.isDeleting,
     required this.onExport,
     required this.onDelete,
+    required this.onShare,
     required this.formatDate,
     required this.safeText,
     required this.formatJsonField,
@@ -476,6 +507,15 @@ class _DiaryDetailContent extends StatelessWidget {
                     const SizedBox(height: AppSpacing.lg),
 
                     AppButton(
+                      text: 'Поделиться со специалистом',
+                      icon: Icons.chat_bubble_outline_rounded,
+                      variant: AppButtonVariant.secondary,
+                      onPressed: isExporting || isDeleting ? null : onShare,
+                    ),
+
+                    const SizedBox(height: AppSpacing.md),
+
+                    AppButton(
                       text: 'Экспортировать',
                       icon: Icons.ios_share_rounded,
                       isLoading: isExporting,
@@ -496,6 +536,325 @@ class _DiaryDetailContent extends StatelessWidget {
               ),
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+class _ShareDiaryEntryBottomSheet extends StatefulWidget {
+  final int diaryEntryId;
+  final VoidCallback onShared;
+
+  const _ShareDiaryEntryBottomSheet({
+    required this.diaryEntryId,
+    required this.onShared,
+  });
+
+  @override
+  State<_ShareDiaryEntryBottomSheet> createState() =>
+      _ShareDiaryEntryBottomSheetState();
+}
+
+class _ShareDiaryEntryData {
+  final List<ConversationModel> conversations;
+  final Map<int, String> therapistNamesByUserId;
+
+  const _ShareDiaryEntryData({
+    required this.conversations,
+    required this.therapistNamesByUserId,
+  });
+}
+
+class _ShareDiaryEntryBottomSheetState
+    extends State<_ShareDiaryEntryBottomSheet> {
+  late Future<_ShareDiaryEntryData> _shareDataFuture;
+
+  bool _isSharing = false;
+  int? _selectedConversationId;
+
+  @override
+  void initState() {
+    super.initState();
+    _shareDataFuture = _loadShareData();
+  }
+
+  Future<_ShareDiaryEntryData> _loadShareData() async {
+    final conversations = await ConversationService.getConversations();
+    final therapists = await TherapistService.getApprovedTherapists();
+
+    final therapistNamesByUserId = <int, String>{};
+
+    for (final therapist in therapists) {
+      final therapistUserId = therapist.userId;
+      final therapistName = therapist.fullName;
+
+      if (therapistUserId == null) {
+        continue;
+      }
+
+      if (therapistName == null || therapistName.trim().isEmpty) {
+        continue;
+      }
+
+      therapistNamesByUserId[therapistUserId] = therapistName.trim();
+    }
+
+    return _ShareDiaryEntryData(
+      conversations: conversations,
+      therapistNamesByUserId: therapistNamesByUserId,
+    );
+  }
+
+  Future<void> _reloadShareData() async {
+    setState(() {
+      _shareDataFuture = _loadShareData();
+    });
+
+    await _shareDataFuture;
+  }
+
+  Future<void> _shareToConversation(ConversationModel conversation) async {
+    final conversationId = conversation.id;
+
+    if (conversationId == null) {
+      _showSnackBar('У переписки нет ID.');
+      return;
+    }
+
+    setState(() {
+      _isSharing = true;
+      _selectedConversationId = conversationId;
+    });
+
+    try {
+      await ConversationService.shareDiaryEntry(
+        conversationId,
+        widget.diaryEntryId,
+      );
+
+      if (!mounted) return;
+
+      Navigator.pop(context);
+      widget.onShared();
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      _showSnackBar(error.message);
+    } catch (_) {
+      if (!mounted) return;
+      _showSnackBar('Не удалось отправить запись специалисту.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSharing = false;
+          _selectedConversationId = null;
+        });
+      }
+    }
+  }
+
+  String _conversationTitle(
+    ConversationModel conversation,
+    Map<int, String> therapistNamesByUserId,
+  ) {
+    final explicitName = conversation.interlocutorName;
+
+    if (explicitName != null && explicitName.trim().isNotEmpty) {
+      return explicitName.trim();
+    }
+
+    final therapistNameFromConversation = conversation.therapistName;
+
+    if (therapistNameFromConversation != null &&
+        therapistNameFromConversation.trim().isNotEmpty) {
+      return therapistNameFromConversation.trim();
+    }
+
+    final therapistUserId = conversation.therapistUserId;
+
+    if (therapistUserId != null) {
+      final therapistNameFromCatalog =
+          therapistNamesByUserId[therapistUserId];
+
+      if (therapistNameFromCatalog != null &&
+          therapistNameFromCatalog.trim().isNotEmpty) {
+        return therapistNameFromCatalog.trim();
+      }
+
+      return 'Терапевт #$therapistUserId';
+    }
+
+    return 'Диалог #${conversation.id ?? ''}';
+  }
+
+  void _showSnackBar(String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: AppSpacing.xl,
+          right: AppSpacing.xl,
+          top: AppSpacing.xl,
+          bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.xl,
+        ),
+        child: SizedBox(
+          height: 520,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Поделиться со специалистом',
+                style: theme.textTheme.titleLarge,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'Выберите переписку, куда отправить КПТ-запись.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Expanded(
+                child: FutureBuilder<_ShareDiaryEntryData>(
+                  future: _shareDataFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: AppLoading(
+                          text: 'Загрузка переписок...',
+                        ),
+                      );
+                    }
+
+                    if (snapshot.hasError) {
+                      final error = snapshot.error;
+                      final message = error is ApiException
+                          ? error.message
+                          : 'Не удалось загрузить переписки.';
+
+                      return AppErrorView(
+                        message: message,
+                        onRetry: _reloadShareData,
+                      );
+                    }
+
+                    final data = snapshot.data;
+
+                    if (data == null) {
+                      return AppErrorView(
+                        message: 'Нет данных для отправки записи.',
+                        onRetry: _reloadShareData,
+                      );
+                    }
+
+                    final conversations = data.conversations;
+                    final therapistNamesByUserId =
+                        data.therapistNamesByUserId;
+
+                    if (conversations.isEmpty) {
+                      return AppCard(
+                        hasShadow: false,
+                        child: Text(
+                          'У вас пока нет переписок со специалистами. Сначала откройте карточку специалиста и нажмите “Написать специалисту”.',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      );
+                    }
+
+                    return ListView.builder(
+                      itemCount: conversations.length,
+                      itemBuilder: (context, index) {
+                        final conversation = conversations[index];
+                        final conversationId = conversation.id;
+
+                        final isThisConversationSharing = _isSharing &&
+                            conversationId != null &&
+                            conversationId == _selectedConversationId;
+
+                        final title = _conversationTitle(
+                          conversation,
+                          therapistNamesByUserId,
+                        );
+
+                        return Padding(
+                          padding: const EdgeInsets.only(
+                            bottom: AppSpacing.md,
+                          ),
+                          child: AppCard(
+                            hasShadow: false,
+                            onTap: _isSharing
+                                ? null
+                                : () => _shareToConversation(conversation),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.chat_bubble_outline_rounded,
+                                  color: theme.colorScheme.primary,
+                                ),
+                                const SizedBox(width: AppSpacing.md),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        title,
+                                        style:
+                                            theme.textTheme.bodyMedium?.copyWith(
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                      const SizedBox(height: AppSpacing.xs),
+                                      Text(
+                                        'Отправить КПТ-запись в эту переписку',
+                                        style:
+                                            theme.textTheme.bodySmall?.copyWith(
+                                          color: theme
+                                              .colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: AppSpacing.sm),
+                                if (isThisConversationSharing)
+                                  const SizedBox(
+                                    width: 22,
+                                    height: 22,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                else
+                                  Icon(
+                                    Icons.chevron_right_rounded,
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

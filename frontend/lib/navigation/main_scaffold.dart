@@ -66,7 +66,7 @@ class MainScaffold extends StatelessWidget {
             route: AppRoutes.therapistCard,
           ),
           _MainNavItem(
-            label: 'Клиенты',
+            label: 'Сообщения',
             icon: Icons.forum_rounded,
             route: AppRoutes.therapistMessages,
           ),
@@ -128,11 +128,7 @@ class MainScaffold extends StatelessWidget {
   String _normalizeLocation(String location) {
     final uri = Uri.tryParse(location);
 
-    if (uri == null) {
-      return location;
-    }
-
-    if (uri.path.isEmpty) {
+    if (uri == null || uri.path.isEmpty) {
       return location;
     }
 

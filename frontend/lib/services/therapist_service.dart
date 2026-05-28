@@ -39,7 +39,7 @@ class TherapistService {
     List<String>? therapyApproaches,
     List<String>? specializations,
     String? description,
-    double? price,
+    String? price,
     Map<String, dynamic>? contacts,
     String? city,
     bool? onlineAvailable,
@@ -68,7 +68,7 @@ class TherapistService {
       }
 
       if (price != null) {
-        data['price'] = price;
+        data['price'] = price.trim();
       }
 
       if (contacts != null) {

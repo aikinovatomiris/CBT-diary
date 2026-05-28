@@ -103,7 +103,7 @@ class _TherapistProfileScreenState extends State<TherapistProfileScreen> {
     _therapyApproachesController.text = profile.therapyApproaches.join(', ');
     _specializationsController.text = profile.specializations.join(', ');
     _descriptionController.text = profile.description ?? '';
-    _priceController.text = profile.price?.toString() ?? '';
+    _priceController.text = profile.price ?? '';
     _cityController.text = profile.city ?? '';
     _contactsController.text = _formatContacts(profile.contacts);
     _onlineAvailable = profile.onlineAvailable ?? false;
@@ -186,13 +186,7 @@ class _TherapistProfileScreenState extends State<TherapistProfileScreen> {
   }
 
   Future<void> _saveProfile() async {
-    final priceText = _priceController.text.trim().replaceAll(',', '.');
-    final price = priceText.isEmpty ? null : double.tryParse(priceText);
-
-    if (priceText.isNotEmpty && price == null) {
-      _showSnackBar('Цена должна быть числом.');
-      return;
-    }
+    final price = _priceController.text.trim();
 
     setState(() {
       _isSaving = true;
@@ -205,7 +199,7 @@ class _TherapistProfileScreenState extends State<TherapistProfileScreen> {
         therapyApproaches: _splitTextList(_therapyApproachesController.text),
         specializations: _splitTextList(_specializationsController.text),
         description: _descriptionController.text,
-        price: price,
+        price: price.isEmpty ? null : price,
         contacts: _parseContacts(_contactsController.text),
         city: _cityController.text,
         onlineAvailable: _onlineAvailable,

@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 
+import '../models/diary_entry_model.dart';
 import '../screens/admin_dashboard_screen.dart';
 import '../screens/admin_pending_therapists_screen.dart';
 import '../screens/admin_therapist_detail_screen.dart';
@@ -7,6 +8,8 @@ import '../screens/analytics_screen.dart';
 import '../screens/assistant_settings_screen.dart';
 import '../screens/change_password_screen.dart';
 import '../screens/chat_screen.dart';
+import '../screens/conversation_detail_screen.dart';
+import '../screens/conversations_list_screen.dart';
 import '../screens/diary_detail_screen.dart';
 import '../screens/diary_list_screen.dart';
 import '../screens/export_preview_screen.dart';
@@ -17,6 +20,7 @@ import '../screens/practice_detail_screen.dart';
 import '../screens/practices_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/register_screen.dart';
+import '../screens/shared_diary_entry_screen.dart';
 import '../screens/role_placeholder_screen.dart';
 import '../screens/splash_screen.dart';
 import '../screens/therapist_catalog_screen.dart';
@@ -92,10 +96,7 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: AppRoutes.therapistMessages,
-          builder: (context, state) => const RolePlaceholderScreen(
-            title: 'Клиенты/Сообщения',
-            description: 'Здесь будут клиенты и сообщения специалиста.',
-          ),
+          builder: (context, state) => const ConversationsListScreen(),
         ),
 
         GoRoute(
@@ -111,6 +112,31 @@ final GoRouter appRouter = GoRouter(
           builder: (context, state) => const AdminDashboardScreen(),
         ),
       ],
+    ),
+
+    GoRoute(
+      path: AppRoutes.conversations,
+      builder: (context, state) => const ConversationsListScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.conversationDetail,
+      builder: (context, state) {
+        final id = state.pathParameters['id'];
+
+        return ConversationDetailScreen(
+          conversationId: id,
+        );
+      },
+    ),
+    GoRoute(
+      path: AppRoutes.sharedDiaryEntry,
+      builder: (context, state) {
+        final entry = state.extra;
+
+        return SharedDiaryEntryScreen(
+          entry: entry is DiaryEntryModel ? entry : null,
+        );
+      },
     ),
 
     GoRoute(
