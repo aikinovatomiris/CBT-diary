@@ -21,12 +21,12 @@ import '../screens/user_screens/practices_screen.dart';
 import '../screens/authorization_screens/profile_screen.dart';
 import '../screens/authorization_screens/register_screen.dart';
 import '../screens/conversation_screens/shared_diary_entry_screen.dart';
-import '../screens/authorization_screens/role_placeholder_screen.dart';
 import '../screens/authorization_screens/splash_screen.dart';
 import '../screens/user_screens/therapist_catalog_screen.dart';
 import '../screens/therapist_screens/therapist_detail_screen.dart';
 import '../screens/therapist_screens/therapist_profile_screen.dart';
 import '../screens/therapist_screens/therapist_register_screen.dart';
+import '../screens/therapist_screens/therapist_home_screen.dart';
 import 'app_routes.dart';
 import 'main_scaffold.dart';
 
@@ -85,10 +85,7 @@ final GoRouter appRouter = GoRouter(
 
         GoRoute(
           path: AppRoutes.therapistHome,
-          builder: (context, state) => const RolePlaceholderScreen(
-            title: 'Главная',
-            description: 'Рабочий экран специалиста.',
-          ),
+          builder: (context, state) => const TherapistHomeScreen(),
         ),
         GoRoute(
           path: AppRoutes.therapistCard,

@@ -389,6 +389,8 @@ class ConversationResponse(BaseModel):
     therapist_user_id: int
     created_at: datetime
 
+    user_name: Optional[str] = None
+    therapist_name: Optional[str] = None
 
 class ConversationMessageCreate(BaseModel):
     content: str = Field(min_length=1)

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../models/therapist_profile_model.dart';
 import '../../services/api_exception.dart';
+import '../../services/auth_service.dart';
 import '../../services/conversation_service.dart';
 import '../../services/therapist_service.dart';
 import '../../theme/app_spacing.dart';
@@ -27,6 +28,7 @@ class TherapistDetailScreen extends StatefulWidget {
 
 class _TherapistDetailScreenState extends State<TherapistDetailScreen> {
   late Future<TherapistProfileModel> _therapistFuture;
+
   int? _profileId;
   bool _isStartingConversation = false;
 
@@ -70,6 +72,12 @@ class _TherapistDetailScreenState extends State<TherapistDetailScreen> {
   }
 
   Future<void> _startConversation(TherapistProfileModel therapist) async {
+    final currentRole = AuthService.cachedUser?.role ?? 'user';
+
+    if (currentRole != 'user') {
+      return;
+    }
+
     final therapistUserId = therapist.userId;
 
     if (therapistUserId == null) {
@@ -211,8 +219,12 @@ class _TherapistDetailContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
     final photoUrl = UrlHelper.buildFileUrl(therapist.photoUrl);
-    final hasPhoto = photoUrl.isNotEmpty;
+    final hasPhoto = photoUrl.trim().isNotEmpty;
+
+    final currentRole = AuthService.cachedUser?.role ?? 'user';
+    final canWriteToTherapist = currentRole == 'user';
 
     return Scaffold(
       appBar: AppBar(
@@ -259,7 +271,10 @@ class _TherapistDetailContent extends StatelessWidget {
                           ),
                           const SizedBox(height: AppSpacing.lg),
                           Text(
-                            _safeText(therapist.fullName, 'Специалист'),
+                            _safeText(
+                              therapist.fullName,
+                              'Специалист',
+                            ),
                             textAlign: TextAlign.center,
                             style: theme.textTheme.headlineMedium,
                           ),
@@ -274,13 +289,15 @@ class _TherapistDetailContent extends StatelessWidget {
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
-                          const SizedBox(height: AppSpacing.lg),
-                          AppButton(
-                            text: 'Написать специалисту',
-                            icon: Icons.chat_bubble_outline_rounded,
-                            isLoading: isStartingConversation,
-                            onPressed: onMessage,
-                          ),
+                          if (canWriteToTherapist) ...[
+                            const SizedBox(height: AppSpacing.lg),
+                            AppButton(
+                              text: 'Написать специалисту',
+                              icon: Icons.chat_bubble_outline_rounded,
+                              isLoading: isStartingConversation,
+                              onPressed: onMessage,
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -401,16 +418,19 @@ class _TherapistDetailContent extends StatelessWidget {
       }
 
       final rawText = value['raw_text'];
+
       if (rawText != null && rawText.toString().trim().isNotEmpty) {
         return rawText.toString().trim();
       }
 
       final text = value['text'];
+
       if (text != null && text.toString().trim().isNotEmpty) {
         return text.toString().trim();
       }
 
       final items = value['items'];
+
       if (items is List && items.isNotEmpty) {
         return _formatDynamicText(items);
       }
@@ -450,12 +470,12 @@ class _TherapistDetailContent extends StatelessWidget {
         return 'Telegram';
       case 'phone':
         return 'Телефон';
+      case 'whatsapp':
+        return 'WhatsApp';
       case 'email':
         return 'Email';
       case 'instagram':
         return 'Instagram';
-      case 'whatsapp':
-        return 'WhatsApp';
       case 'website':
         return 'Сайт';
       case 'text':

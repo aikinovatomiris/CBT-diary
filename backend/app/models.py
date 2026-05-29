@@ -290,6 +290,18 @@ class Conversation(Base):
         back_populates="conversation",
         cascade="all, delete-orphan",
     )
+    
+    @property
+    def user_name(self) -> str | None:
+        if self.user:
+            return self.user.name
+        return None
+
+    @property
+    def therapist_name(self) -> str | None:
+        if self.therapist:
+            return self.therapist.name
+        return None
 
 
 class ConversationMessage(Base):

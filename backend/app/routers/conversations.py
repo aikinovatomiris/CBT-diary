@@ -1,7 +1,7 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_db
 from app.models import (
@@ -37,6 +37,33 @@ def get_conversation_or_404(
 ) -> Conversation:
     conversation = (
         db.query(Conversation)
+        .options(
+            selectinload(Conversation.user),
+            selectinload(Conversation.therapist),
+        )
+        .filter(Conversation.id == conversation_id)
+        .first()
+    )
+
+    if not conversation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Переписка не найдена",
+        )
+
+    return conversation
+
+
+def get_conversation_with_participants_or_404(
+    conversation_id: int,
+    db: Session,
+) -> Conversation:
+    conversation = (
+        db.query(Conversation)
+        .options(
+            selectinload(Conversation.user),
+            selectinload(Conversation.therapist),
+        )
         .filter(Conversation.id == conversation_id)
         .first()
     )
@@ -174,6 +201,10 @@ def create_or_get_conversation(
 
     existing_conversation = (
         db.query(Conversation)
+        .options(
+            selectinload(Conversation.user),
+            selectinload(Conversation.therapist),
+        )
         .filter(
             Conversation.user_id == current_user.id,
             Conversation.therapist_user_id == therapist.id,
@@ -193,7 +224,10 @@ def create_or_get_conversation(
     db.commit()
     db.refresh(conversation)
 
-    return conversation
+    return get_conversation_with_participants_or_404(
+        conversation_id=conversation.id,
+        db=db,
+    )
 
 
 @router.get(
@@ -204,9 +238,17 @@ def get_my_conversations(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    base_query = (
+        db.query(Conversation)
+        .options(
+            selectinload(Conversation.user),
+            selectinload(Conversation.therapist),
+        )
+    )
+
     if current_user.role == "user":
         conversations = (
-            db.query(Conversation)
+            base_query
             .filter(Conversation.user_id == current_user.id)
             .order_by(Conversation.created_at.desc())
             .all()
@@ -216,7 +258,7 @@ def get_my_conversations(
 
     if current_user.role == "therapist":
         conversations = (
-            db.query(Conversation)
+            base_query
             .filter(Conversation.therapist_user_id == current_user.id)
             .order_by(Conversation.created_at.desc())
             .all()
