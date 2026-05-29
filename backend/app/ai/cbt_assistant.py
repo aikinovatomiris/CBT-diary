@@ -78,6 +78,12 @@ ALLOWED_COGNITIVE_DISTORTIONS = {
     "навешивание ярлыков",
 }
 
+def normalize_user_text(text: str) -> str:
+    if not text:
+        return ""
+
+    return text.lower().strip().replace("ё", "е")
+
 
 def clean_assistant_reply(text: str) -> str:
     if not text:
@@ -157,8 +163,7 @@ def is_vague_message(user_message: str) -> bool:
     return False
 
 def is_emotion_uncertainty_message(user_message: str) -> bool:
-    normalized = user_message.lower().strip().replace("ё", "е")
-
+    normalized = normalize_user_text(user_message)
     uncertainty_phrases = [
         "не знаю что чувствую",
         "не знаю, что чувствую",
@@ -193,7 +198,7 @@ def has_emotion_intensity(user_message: str) -> bool:
 
 
 def has_emotion_words(user_message: str) -> bool:
-    normalized = user_message.lower().replace("ё", "е")
+    normalized = normalize_user_text(user_message)
 
     emotion_words = [
         "тревога",
@@ -203,23 +208,37 @@ def has_emotion_words(user_message: str) -> bool:
         "стыд",
         "стыдно",
         "вина",
+        "виноват",
+        "виновата",
         "грусть",
         "грустно",
         "злость",
+        "злюсь",
         "обида",
+        "обидно",
         "растерянность",
+        "растеряна",
+        "растерян",
         "беспомощность",
         "бессилие",
+        "одиночество",
+        "одиноко",
         "паника",
         "раздражение",
+        "раздражена",
+        "раздражен",
+        "усталость",
+        "устала",
+        "устал",
+        "разочарование",
+        "отчаяние",
     ]
 
     return any(word in normalized for word in emotion_words)
 
 
 def is_alternative_thought_uncertainty_message(user_message: str) -> bool:
-    normalized = user_message.lower().strip().replace("ё", "е")
-
+    normalized = normalize_user_text(user_message)
     uncertainty_phrases = [
         "не знаю",
         "не получается",
@@ -235,6 +254,94 @@ def is_alternative_thought_uncertainty_message(user_message: str) -> bool:
 
     return any(phrase == normalized or phrase in normalized for phrase in uncertainty_phrases)
 
+def is_evidence_uncertainty_message(user_message: str) -> bool:
+    normalized = normalize_user_text(user_message)
+
+    uncertainty_phrases = [
+        "не знаю",
+        "не понимаю",
+        "не могу найти",
+        "не могу придумать",
+        "ничего",
+        "нет",
+        "не вижу",
+        "сложно",
+        "сложно сказать",
+        "не получается",
+        "не могу ответить",
+    ]
+
+    return any(
+        phrase == normalized or phrase in normalized
+        for phrase in uncertainty_phrases
+    )
+
+
+def build_emotion_choice_reply() -> str:
+    return (
+        "Можно начать с простого выбора. Что ближе к твоему состоянию сейчас: "
+        "тревога, страх, вина, стыд, злость, грусть, обида или растерянность?"
+    )
+
+
+def build_emotion_intensity_reply() -> str:
+    return (
+        "Ты уже назвала эмоции. Теперь оцени каждую примерно от 0 до 100, "
+        "например: тревога — 80, страх — 60."
+    )
+
+
+def build_evidence_for_help_reply(session_data: dict) -> str:
+    automatic_thought = session_data.get("automatic_thought")
+
+    if automatic_thought:
+        return (
+            f"Давай отделим факты от ощущения. Если мысль звучит как «{automatic_thought}», "
+            "какой один реальный факт будто подтверждает её?"
+        )
+
+    return (
+        "Давай отделим факты от ощущения. Какой один реальный факт будто подтверждает эту мысль?"
+    )
+
+
+def build_evidence_against_help_reply(session_data: dict) -> str:
+    automatic_thought = session_data.get("automatic_thought")
+
+    if automatic_thought:
+        return (
+            f"Попробуем не спорить с мыслью «{automatic_thought}», а проверить её мягче. "
+            "Есть ли хотя бы один факт, который показывает, что она может быть не всей правдой?"
+        )
+
+    return (
+        "Попробуем проверить мысль мягче. Есть ли хотя бы один факт, который показывает, "
+        "что ситуация может быть не такой однозначной?"
+    )
+
+
+def build_alternative_thought_draft(session_data: dict) -> str:
+    automatic_thought = session_data.get("automatic_thought")
+    evidence_against = session_data.get("evidence_against")
+
+    if automatic_thought and evidence_against:
+        return (
+            "Мне сейчас тяжело, и автоматическая мысль кажется убедительной, "
+            "но она может быть не всей правдой. Есть факты, которые показывают, "
+            "что ситуацию можно увидеть мягче и реалистичнее."
+        )
+
+    if automatic_thought:
+        return (
+            "Мне сейчас трудно, поэтому эта мысль кажется очень сильной. "
+            "Но мысль — это не факт, и я могу попробовать посмотреть на ситуацию спокойнее."
+        )
+
+    return (
+        "Сейчас мне тяжело, но это не значит, что всё безнадёжно. "
+        "Я могу сделать шаг назад и посмотреть на ситуацию более бережно и реалистично."
+    )
+
 
 def should_use_grounding_for_message(user_message: str) -> bool:
     """
@@ -243,8 +350,8 @@ def should_use_grounding_for_message(user_message: str) -> bool:
     или описывает сильную телесную перегрузку прямо сейчас.
     """
 
-    normalized = user_message.lower().strip().replace("ё", "е")
-
+    normalized = normalize_user_text(user_message)
+    
     safe_context_phrases = [
         "не могу думать о других",
         "не могу думать о работе",
@@ -513,49 +620,52 @@ def generate_fake_cbt_reply(
             current_phase = "STABILIZATION"
 
         elif is_emotion_uncertainty_message(user_message):
-            assistant_reply = (
-                "Можно начать с простого выбора. Что ближе к твоему состоянию сейчас: "
-                "тревога, страх, вина, стыд, злость, грусть или растерянность?"
-            )
+            assistant_reply = build_emotion_choice_reply()
             used_technique = "NONE"
             should_advance = False
             current_phase = "EMOTION_ASSESSMENT"
 
         elif has_emotion_words(user_message) and not has_emotion_intensity(user_message):
-            assistant_reply = (
-                "Ты уже назвала эмоции. Теперь оцени каждую примерно от 0 до 100, "
-                "например: тревога — 80, страх — 60."
-            )
+            assistant_reply = build_emotion_intensity_reply()
             used_technique = "NONE"
             should_advance = False
             current_phase = "EMOTION_ASSESSMENT"
 
-        else:
+        elif has_emotion_intensity(user_message):
             if has_high_emotion_intensity(user_message):
                 assistant_reply = (
-                    "Эмоции очень сильные, поэтому пойдем бережно. "
-                    "Какие факты подтверждают эту автоматическую мысль?"
+                    "Эмоции правда сильные, поэтому будем двигаться бережно. "
+                    "Какой факт подтверждает автоматическую мысль?"
                 )
             else:
-                assistant_reply = "Какие факты подтверждают эту автоматическую мысль?"
+                assistant_reply = "Какой факт подтверждает автоматическую мысль?"
 
             used_technique = "SOCRATIC_DIALOGUE"
             should_advance = True
             current_phase = "COGNITIVE_RESTRUCTURING"
 
-    elif current_step == "EVIDENCE_FOR":
-        if is_vague_message(user_message):
+        else:
             assistant_reply = (
-                "Можно назвать даже один небольшой факт. Что реально произошло, что будто подтверждает эту мысль?"
+                "Помоги мне точнее зафиксировать эмоции: что ты почувствовала "
+                "и насколько сильно от 0 до 100?"
             )
+            used_technique = "NONE"
+            should_advance = False
+            current_phase = "EMOTION_ASSESSMENT"
+
+    elif current_step == "EVIDENCE_FOR":
+        if is_evidence_uncertainty_message(user_message):
+            assistant_reply = build_evidence_for_help_reply(session_data)
             used_technique = "SOCRATIC_DIALOGUE"
             should_advance = False
             current_phase = "COGNITIVE_RESTRUCTURING"
+
         else:
             variants = [
                 "А теперь посмотрим с другой стороны. Какие факты говорят против этой мысли?",
                 "Что показывает, что эта мысль может быть не полностью точной?",
                 "Есть ли хотя бы один факт, который делает ситуацию не такой однозначной?",
+                "Если бы ты смотрела на эту ситуацию немного со стороны, что могло бы не совпадать с автоматической мыслью?",
             ]
 
             assistant_reply = choose_variant(
@@ -567,18 +677,18 @@ def generate_fake_cbt_reply(
             current_phase = "COGNITIVE_RESTRUCTURING"
 
     elif current_step == "EVIDENCE_AGAINST":
-        if is_vague_message(user_message):
-            assistant_reply = (
-                "Если факты против сложно найти, попробуй мягче: что бы ты сказала близкому человеку в такой ситуации?"
-            )
+        if is_evidence_uncertainty_message(user_message):
+            assistant_reply = build_evidence_against_help_reply(session_data)
             used_technique = "SOCRATIC_DIALOGUE"
             should_advance = False
             current_phase = "COGNITIVE_RESTRUCTURING"
+
         else:
             variants = [
                 "Теперь попробуем собрать более сбалансированную мысль. Как она могла бы звучать?",
                 "Как можно сформулировать мысль мягче и реалистичнее, без ярлыка на себя?",
                 "Если учесть и трудность ситуации, и факты против автоматической мысли, какая мысль будет справедливее?",
+                "Как бы звучала мысль, которая признаёт трудность ситуации, но не делает из неё самый жёсткий вывод?",
             ]
 
             assistant_reply = choose_variant(
@@ -591,21 +701,37 @@ def generate_fake_cbt_reply(
 
     elif current_step == "ALTERNATIVE_THOUGHT":
         if is_alternative_thought_uncertainty_message(user_message):
-            situation = session_data.get("situation")
-            automatic_thought = session_data.get("automatic_thought")
-            evidence_against = session_data.get("evidence_against")
-
-            suggested_thought = "Сейчас мне трудно, но это не значит, что автоматическая мысль полностью верна. Я могу посмотреть на ситуацию более спокойно и опереться на факты."
-
-            if automatic_thought and evidence_against:
-                suggested_thought = (
-                    "Мне сейчас тяжело, но моя автоматическая мысль может быть не всей правдой. "
-                    "Есть факты, которые показывают, что ситуацию можно увидеть мягче и реалистичнее."
-                )
+            suggested_thought = build_alternative_thought_draft(session_data)
 
             assistant_reply = (
-                f"Можно взять мягкий черновик: «{suggested_thought}» "
+                f"Можно взять это как черновик: «{suggested_thought}» "
                 "Насколько эта мысль тебе подходит?"
+            )
+
+            used_technique = "REFRAMING"
+            should_advance = False
+            current_phase = "ALTERNATIVE_FORMULATION"
+
+            return {
+                "assistant_reply": clean_assistant_reply(assistant_reply),
+                "should_advance": should_advance,
+                "used_technique": used_technique,
+                "extracted_data": {
+                    "assistant_alternative_thought": suggested_thought
+                },
+                "current_phase": current_phase,
+                "should_finish": False,
+                "diary_readiness_score": 0,
+                "assistant_alternative_thought": suggested_thought,
+                "final_alternative_thought": None,
+            }
+
+        if len(user_message.strip().split()) < 5:
+            suggested_thought = build_alternative_thought_draft(session_data)
+
+            assistant_reply = (
+                f"Давай сделаем мысль чуть более полной. Например: «{suggested_thought}» "
+                "Что в этом варианте хочется изменить под себя?"
             )
 
             used_technique = "REFRAMING"
