@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from typing import Any, List, Optional
 
@@ -117,6 +118,96 @@ def get_next_step(current_step: str) -> str:
 def get_phase_for_step(step: str) -> str:
     return STEP_TO_PHASE.get(step, "SITUATION_ANALYSIS")
 
+def has_emotion_intensity(message: str) -> bool:
+    """
+    Проверяет, есть ли в сообщении оценка интенсивности эмоций от 0 до 100.
+
+    Примеры true:
+    - "тревога 80, страх 60"
+    - "тревога - 90"
+    - "80"
+    - "примерно на 70"
+
+    Примеры false:
+    - "тревога и страх"
+    - "мне плохо"
+    - "я не знаю что чувствую"
+    """
+
+    if not message:
+        return False
+
+    numbers = re.findall(r"\b\d{1,3}\b", message)
+
+    for number in numbers:
+        try:
+            value = int(number)
+        except ValueError:
+            continue
+
+        if 0 <= value <= 100:
+            return True
+
+    return False
+
+
+def looks_like_emotion_words_without_intensity(message: str) -> bool:
+    """
+    Проверяет, что пользователь назвал эмоции,
+    но не указал интенсивность.
+
+    Это нужно, чтобы не сохранять "Тревога и страх" как полноценный emotions_before.
+    """
+
+    if not message:
+        return False
+
+    normalized = message.lower().replace("ё", "е")
+
+    emotion_words = [
+        "тревога",
+        "тревожно",
+        "страх",
+        "страшно",
+        "стыд",
+        "стыдно",
+        "вина",
+        "виноват",
+        "виновата",
+        "грусть",
+        "грустно",
+        "злость",
+        "злюсь",
+        "обида",
+        "обидно",
+        "растерянность",
+        "растеряна",
+        "растерян",
+        "беспомощность",
+        "бессилие",
+        "одиночество",
+        "одиноко",
+        "паника",
+        "раздражение",
+        "раздражена",
+        "раздражен",
+    ]
+
+    has_emotion_word = any(word in normalized for word in emotion_words)
+
+    return has_emotion_word and not has_emotion_intensity(message)
+
+
+def build_ask_emotion_intensity_reply(message: str) -> str:
+    """
+    Ответ, когда эмоции названы, но нет оценки 0–100.
+    """
+
+    return (
+        "Ты уже назвала эмоции. Теперь оцени каждую примерно от 0 до 100, "
+        "например: тревога — 80, страх — 60."
+    )
+
 
 def needs_stabilization(message: str) -> bool:
     """
@@ -124,42 +215,102 @@ def needs_stabilization(message: str) -> bool:
     и перейти в стабилизацию.
 
     Важно:
-    Не каждое упоминание тревоги, страха или паники должно останавливать сессию.
-    Для КПТ-дневника пользователь может описывать сильные эмоции — это нормально.
+    Стабилизация НЕ должна включаться просто из-за слов:
+    - тревога
+    - страх
+    - паника
+    - мне плохо
+    - я не знаю
+    - не могу думать о других
+
+    Эти фразы часто являются обычным материалом для КПТ-дневника.
 
     Стабилизацию включаем только если пользователь явно сообщает,
-    что сейчас не может продолжать, думать, дышать или удерживаться в диалоге.
+    что прямо сейчас не может продолжать диалог, отвечать, дышать
+    или удерживаться в контакте.
     """
 
-    normalized = message.lower().strip()
+    if not message:
+        return False
 
-    strong_stabilization_markers = [
+    normalized = message.lower().strip()
+    normalized = normalized.replace("ё", "е")
+
+    safe_context_phrases = [
+        "не могу думать о других",
+        "не могу думать об этом человеке",
+        "не могу думать о нем",
+        "не могу думать о ней",
+        "не могу думать о них",
+        "не могу думать о работе",
+        "не могу думать об учебе",
+        "не могу думать о будущем",
+        "не могу думать ни о чем хорошем",
+        "не могу думать позитивно",
+    ]
+
+    if any(phrase in normalized for phrase in safe_context_phrases):
+        return False
+
+    direct_shutdown_markers = [
+        "не могу продолжать",
+        "я не могу продолжать",
+        "не могу дальше",
+        "я не могу дальше",
+        "не могу сейчас отвечать",
+        "я не могу сейчас отвечать",
+        "не могу ответить",
+        "я не могу ответить",
+        "не могу говорить",
+        "я не могу говорить",
+        "не могу писать",
+        "я не могу писать",
+        "мне нужно остановиться",
+        "давай остановимся",
+        "останови сессию",
+        "остановись",
+    ]
+
+    if any(marker in normalized for marker in direct_shutdown_markers):
+        return True
+
+    body_overload_markers = [
         "меня трясет",
         "меня всю трясет",
         "меня сильно трясет",
-        "трясет",
-        "трясло",
+        "я вся трясусь",
+        "я весь трясусь",
         "дрожу",
         "дрожь",
-        "не могу продолжать",
-        "не могу дальше",
-        "не могу думать",
-        "не могу мыслить",
-        "не могу сосредоточиться",
-        "не могу сконцентрироваться",
-        "не могу успокоиться",
         "не могу дышать",
         "тяжело дышать",
         "задыхаюсь",
-        "меня накрывает",
-        "накрывает так, что не могу",
-        "я не могу ответить",
-        "не могу ответить",
-        "не могу сейчас отвечать",
+        "не хватает воздуха",
+        "сейчас упаду",
+        "я сейчас упаду",
+        "теряю контроль",
+        "я теряю контроль",
+        "меня накрывает так, что не могу",
     ]
 
-    return any(marker in normalized for marker in strong_stabilization_markers)
+    if any(marker in normalized for marker in body_overload_markers):
+        return True
 
+    thinking_shutdown_patterns = [
+        "не могу думать сейчас",
+        "я не могу думать сейчас",
+        "не могу сейчас думать",
+        "я не могу сейчас думать",
+        "не могу думать, меня",
+        "не могу думать и отвечать",
+        "не могу думать и продолжать",
+        "не могу думать, не могу продолжать",
+    ]
+
+    if any(pattern in normalized for pattern in thinking_shutdown_patterns):
+        return True
+
+    return False
 
 def is_session_in_stabilization(session: CBTSession) -> bool:
     return session.current_phase == "STABILIZATION"
@@ -640,8 +791,6 @@ def send_message_to_cbt_session(
             detail="Эта КПТ-сессия уже завершена",
         )
 
-    # 1. Crisis check — самый первый.
-    # Нельзя вызывать LLM и нельзя продолжать обычную КПТ-логику.
     if is_crisis_message(message_data.content):
         session.current_phase = "STABILIZATION"
 
@@ -675,7 +824,6 @@ def send_message_to_cbt_session(
             "session_status": session.status,
         }
 
-    # 2. Off-topic check — до LLM.
     if is_off_topic(message_data.content):
         user_message = CBTMessage(
             session_id=session.id,
@@ -707,9 +855,6 @@ def send_message_to_cbt_session(
             "session_status": session.status,
         }
 
-    # 3. Если сессия уже в STABILIZATION,
-    # ответ пользователя считается ответом на grounding-вопрос.
-    # Его нельзя сохранять как emotions/evidence/alternative_thought.
     if is_session_in_stabilization(session):
         assistant_reply, next_step, next_phase = get_return_from_stabilization_reply(
             session=session,
@@ -748,10 +893,6 @@ def send_message_to_cbt_session(
             "session_status": session.status,
         }
 
-    # 4. Если пользователь явно перегружен,
-    # не сохраняем его сообщение в поля КПТ и не вызываем LLM.
-    # Исключение: если это шаг EMOTIONS, и сообщение содержит эмоции,
-    # мы можем сохранить его как emotions_before и затем стабилизировать.
     if needs_stabilization(message_data.content):
         if session.current_step == "EMOTIONS":
             session.emotions_before = {
@@ -773,6 +914,42 @@ def send_message_to_cbt_session(
         )
 
         session.current_phase = "STABILIZATION"
+
+        db.add(user_message)
+        db.add(assistant_message)
+        db.commit()
+
+        db.refresh(user_message)
+        db.refresh(assistant_message)
+        db.refresh(session)
+
+        return {
+            "user_message": user_message,
+            "assistant_message": assistant_message,
+            "current_step": session.current_step,
+            "current_phase": session.current_phase,
+            "session_status": session.status,
+        }
+        
+    if session.current_step == "EMOTIONS" and looks_like_emotion_words_without_intensity(
+        message_data.content
+    ):
+        user_message = CBTMessage(
+            session_id=session.id,
+            role="user",
+            content=message_data.content,
+            used_technique=None,
+        )
+
+        assistant_message = CBTMessage(
+            session_id=session.id,
+            role="assistant",
+            content=build_ask_emotion_intensity_reply(message_data.content),
+            used_technique="NONE",
+        )
+
+        session.current_step = "EMOTIONS"
+        session.current_phase = "EMOTION_ASSESSMENT"
 
         db.add(user_message)
         db.add(assistant_message)

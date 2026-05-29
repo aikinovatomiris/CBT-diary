@@ -97,6 +97,15 @@ def clean_assistant_reply(text: str) -> str:
 
 
 def has_high_emotion_intensity(user_message: str) -> bool:
+    """
+    Определяет высокую интенсивность эмоций.
+
+    Важно:
+    Высокая интенсивность сама по себе НЕ равна необходимости grounding.
+    Например "тревога 90, страх 80" — это нормальный ответ для шага EMOTIONS.
+    В таком случае нужно сохранить эмоции и продолжить КПТ бережно.
+    """
+
     numbers = re.findall(r"\b\d{1,3}\b", user_message)
 
     for number in numbers:
@@ -109,14 +118,15 @@ def has_high_emotion_intensity(user_message: str) -> bool:
             return True
 
     intense_words = [
-        "невыносимо",
         "очень сильно",
+        "очень сильная тревога",
+        "очень сильный страх",
+        "сильная тревога",
+        "сильный страх",
         "паника",
+        "паникую",
         "ужас",
         "ужасно",
-        "не могу успокоиться",
-        "трясет",
-        "трясло",
     ]
 
     normalized = user_message.lower()
@@ -145,6 +155,130 @@ def is_vague_message(user_message: str) -> bool:
         return True
 
     return False
+
+def is_emotion_uncertainty_message(user_message: str) -> bool:
+    normalized = user_message.lower().strip().replace("ё", "е")
+
+    uncertainty_phrases = [
+        "не знаю что чувствую",
+        "не знаю, что чувствую",
+        "не знаю что испытываю",
+        "не знаю, что испытываю",
+        "не понимаю что чувствую",
+        "не понимаю, что чувствую",
+        "не могу понять что чувствую",
+        "не могу понять, что чувствую",
+        "сложно понять что чувствую",
+        "сложно сказать что чувствую",
+        "я не знаю",
+        "не знаю",
+        "не понимаю",
+    ]
+
+    return any(phrase == normalized or phrase in normalized for phrase in uncertainty_phrases)
+
+def has_emotion_intensity(user_message: str) -> bool:
+    numbers = re.findall(r"\b\d{1,3}\b", user_message)
+
+    for number in numbers:
+        try:
+            value = int(number)
+        except ValueError:
+            continue
+
+        if 0 <= value <= 100:
+            return True
+
+    return False
+
+
+def has_emotion_words(user_message: str) -> bool:
+    normalized = user_message.lower().replace("ё", "е")
+
+    emotion_words = [
+        "тревога",
+        "тревожно",
+        "страх",
+        "страшно",
+        "стыд",
+        "стыдно",
+        "вина",
+        "грусть",
+        "грустно",
+        "злость",
+        "обида",
+        "растерянность",
+        "беспомощность",
+        "бессилие",
+        "паника",
+        "раздражение",
+    ]
+
+    return any(word in normalized for word in emotion_words)
+
+
+def is_alternative_thought_uncertainty_message(user_message: str) -> bool:
+    normalized = user_message.lower().strip().replace("ё", "е")
+
+    uncertainty_phrases = [
+        "не знаю",
+        "не получается",
+        "не могу сформулировать",
+        "не могу придумать",
+        "не понимаю как",
+        "не знаю как",
+        "никак",
+        "сложно",
+        "сложно сформулировать",
+        "не выходит",
+    ]
+
+    return any(phrase == normalized or phrase in normalized for phrase in uncertainty_phrases)
+
+
+def should_use_grounding_for_message(user_message: str) -> bool:
+    """
+    Grounding нужен не при любой тревоге и не при любой оценке 90/100.
+    Он нужен, когда пользователь явно не может продолжать диалог
+    или описывает сильную телесную перегрузку прямо сейчас.
+    """
+
+    normalized = user_message.lower().strip().replace("ё", "е")
+
+    safe_context_phrases = [
+        "не могу думать о других",
+        "не могу думать о работе",
+        "не могу думать об учебе",
+        "не могу думать о будущем",
+        "не могу думать ни о чем хорошем",
+    ]
+
+    if any(phrase in normalized for phrase in safe_context_phrases):
+        return False
+
+    grounding_markers = [
+        "меня трясет",
+        "меня всю трясет",
+        "я вся трясусь",
+        "я весь трясусь",
+        "дрожу",
+        "дрожь",
+        "не могу продолжать",
+        "не могу дальше",
+        "не могу сейчас отвечать",
+        "не могу ответить",
+        "не могу говорить",
+        "не могу писать",
+        "не могу дышать",
+        "тяжело дышать",
+        "задыхаюсь",
+        "не хватает воздуха",
+        "сейчас упаду",
+        "теряю контроль",
+        "меня накрывает так, что не могу",
+    ]
+
+    return any(marker in normalized for marker in grounding_markers)
 
 
 def looks_like_situation(user_message: str) -> bool:
@@ -222,15 +356,12 @@ def normalize_used_technique(
     should_advance: bool = True,
 ) -> str:
     """
-    Важно:
-    assistant message — это не просто техника текущего поля.
-    Если пользователь успешно ответил на current_step, ассистент задает вопрос уже к следующему шагу.
+    Нормализует технику.
 
-    Например:
-    current_step = SITUATION
-    пользователь описал ситуацию
-    assistant_reply спрашивает автоматическую мысль
-    значит used_technique должен быть DOWNWARD_ARROW, а не NONE.
+    Главное правило:
+    GROUNDING разрешаем только если сообщение реально похоже
+    на невозможность продолжать диалог или телесную перегрузку.
+    Просто тревога, страх, паника или оценка 90/100 — недостаточная причина.
     """
 
     if current_step == "SITUATION":
@@ -240,10 +371,7 @@ def normalize_used_technique(
         default_technique = "NONE"
 
     elif current_step == "EMOTIONS":
-        if has_high_emotion_intensity(user_message) and llm_technique == "GROUNDING":
-            default_technique = "GROUNDING"
-        else:
-            default_technique = "SOCRATIC_DIALOGUE"
+        default_technique = "SOCRATIC_DIALOGUE" if should_advance else "NONE"
 
     elif current_step == "EVIDENCE_FOR":
         default_technique = "SOCRATIC_DIALOGUE"
@@ -266,6 +394,12 @@ def normalize_used_technique(
     if llm_technique not in VALID_TECHNIQUES:
         return default_technique
 
+    if llm_technique == "GROUNDING":
+        if should_use_grounding_for_message(user_message):
+            return "GROUNDING"
+
+        return default_technique
+
     if llm_technique == "NONE" and default_technique != "NONE":
         return default_technique
 
@@ -275,7 +409,14 @@ def normalize_used_technique(
 def normalize_current_phase(
     current_step: str,
     llm_phase: str | None,
+    user_message: str = "",
 ) -> str:
+    if llm_phase == "STABILIZATION":
+        if should_use_grounding_for_message(user_message):
+            return "STABILIZATION"
+
+        return STEP_TO_DEFAULT_PHASE.get(current_step, "SITUATION_ANALYSIS")
+
     if llm_phase in VALID_PHASES:
         return llm_phase
 
@@ -293,21 +434,27 @@ def should_use_llm_result(parsed_result) -> bool:
 def generate_fake_cbt_reply(
     current_step: str,
     user_message: str = "",
+    session_data: dict | None = None,
 ) -> CBTAssistantResult:
     """
     Умный fallback без LLM.
 
-    Теперь он не штампует одно и то же начало.
-    Он учитывает current_step и то, дал ли пользователь достаточно информации.
+    Он не должен заменять LLM, но должен вести сессию безопасно и логично:
+    - не включать grounding без причины;
+    - помогать, если пользователь не знает эмоции;
+    - помогать с альтернативной мыслью, если пользователь не может сформулировать;
+    - задавать только один вопрос.
     """
+
+    session_data = session_data or {}
 
     if current_step == "SITUATION":
         if looks_like_situation(user_message):
             variants = [
-                "Похоже, ситуация уже понятна. Какая мысль о себе, маме или этой ситуации появилась в тот момент?",
-                "Давай выделим автоматическую мысль. Что эта ситуация будто сказала о тебе?",
-                "Теперь попробуем найти мысль, которая сильнее всего зацепила. Если закончить фразу «это значит, что...», что получится?",
-                "Ситуацию зафиксировали. Какая первая болезненная мысль появилась, когда это произошло?",
+                "Какая мысль появилась у тебя в тот момент?",
+                "Что эта ситуация будто сказала о тебе?",
+                "Если закончить фразу «это значит, что...», что получится?",
+                "Какая первая болезненная мысль возникла, когда это произошло?",
             ]
 
             assistant_reply = choose_variant(
@@ -321,10 +468,9 @@ def generate_fake_cbt_reply(
 
         else:
             variants = [
-                "Давай начнем с конкретики. Что произошло?",
-                "Попробуй описать один эпизод, который сейчас больше всего тревожит.",
-                "Чтобы не разбирать всё сразу, выбери одну ситуацию: что именно случилось?",
-                "Опиши, пожалуйста, конкретный момент: что произошло?",
+                "Давай выберем один конкретный момент. Что именно произошло?",
+                "Чтобы не разбирать всё сразу, опиши один эпизод: что случилось?",
+                "Попробуй назвать конкретную ситуацию, которую хочешь разобрать.",
             ]
 
             assistant_reply = choose_variant(
@@ -339,8 +485,8 @@ def generate_fake_cbt_reply(
     elif current_step == "AUTOMATIC_THOUGHT":
         variants = [
             "Какие эмоции появились после этой мысли? Оцени каждую примерно от 0 до 100.",
-            "Давай зафиксируем эмоции. Что ты почувствовала и насколько сильно от 0 до 100?",
-            "Какие чувства поднялись в тот момент? Можно написать так: тревога — 80, стыд — 60.",
+            "Что ты почувствовала в тот момент? Можно написать так: тревога — 80, вина — 60.",
+            "Давай зафиксируем эмоции: какие чувства были и насколько сильные от 0 до 100?",
         ]
 
         assistant_reply = choose_variant(
@@ -352,10 +498,10 @@ def generate_fake_cbt_reply(
         current_phase = "EMOTION_ASSESSMENT"
 
     elif current_step == "EMOTIONS":
-        if has_high_emotion_intensity(user_message):
+        if should_use_grounding_for_message(user_message):
             variants = [
-                "Эмоции правда очень сильные. Прежде чем продолжить, попробуй заметить опору под ногами и сделать один медленный выдох. Что немного помогает тебе оставаться здесь и сейчас?",
-                "Интенсивность высокая, поэтому сначала чуть стабилизируемся. Назови один предмет рядом с собой, который ты видишь прямо сейчас.",
+                "Сейчас важнее немного стабилизироваться. Почувствуй опору под собой и назови один предмет рядом, который видишь.",
+                "Давай на секунду остановимся. Сделай медленный выдох и назови один звук, который слышишь сейчас.",
             ]
 
             assistant_reply = choose_variant(
@@ -366,11 +512,50 @@ def generate_fake_cbt_reply(
             should_advance = False
             current_phase = "STABILIZATION"
 
+        elif is_emotion_uncertainty_message(user_message):
+            assistant_reply = (
+                "Можно начать с простого выбора. Что ближе к твоему состоянию сейчас: "
+                "тревога, страх, вина, стыд, злость, грусть или растерянность?"
+            )
+            used_technique = "NONE"
+            should_advance = False
+            current_phase = "EMOTION_ASSESSMENT"
+
+        elif has_emotion_words(user_message) and not has_emotion_intensity(user_message):
+            assistant_reply = (
+                "Ты уже назвала эмоции. Теперь оцени каждую примерно от 0 до 100, "
+                "например: тревога — 80, страх — 60."
+            )
+            used_technique = "NONE"
+            should_advance = False
+            current_phase = "EMOTION_ASSESSMENT"
+
+        else:
+            if has_high_emotion_intensity(user_message):
+                assistant_reply = (
+                    "Эмоции очень сильные, поэтому пойдем бережно. "
+                    "Какие факты подтверждают эту автоматическую мысль?"
+                )
+            else:
+                assistant_reply = "Какие факты подтверждают эту автоматическую мысль?"
+
+            used_technique = "SOCRATIC_DIALOGUE"
+            should_advance = True
+            current_phase = "COGNITIVE_RESTRUCTURING"
+
+    elif current_step == "EVIDENCE_FOR":
+        if is_vague_message(user_message):
+            assistant_reply = (
+                "Можно назвать даже один небольшой факт. Что реально произошло, что будто подтверждает эту мысль?"
+            )
+            used_technique = "SOCRATIC_DIALOGUE"
+            should_advance = False
+            current_phase = "COGNITIVE_RESTRUCTURING"
         else:
             variants = [
-                "Теперь посмотрим на мысль через факты. Что действительно подтверждает эту мысль?",
-                "Какие факты говорят в пользу этой автоматической мысли?",
-                "Если отделить факты от чувства вины, что подтверждает эту мысль?",
+                "А теперь посмотрим с другой стороны. Какие факты говорят против этой мысли?",
+                "Что показывает, что эта мысль может быть не полностью точной?",
+                "Есть ли хотя бы один факт, который делает ситуацию не такой однозначной?",
             ]
 
             assistant_reply = choose_variant(
@@ -381,40 +566,69 @@ def generate_fake_cbt_reply(
             should_advance = True
             current_phase = "COGNITIVE_RESTRUCTURING"
 
-    elif current_step == "EVIDENCE_FOR":
-        variants = [
-            "А теперь посмотрим с другой стороны. Какие факты говорят против этой мысли?",
-            "Что в этой ситуации показывает, что мысль может быть не полностью точной?",
-            "Есть ли факты, которые не совпадают с мыслью о том, что всё именно так плохо?",
-        ]
-
-        assistant_reply = choose_variant(
-            variants=variants,
-            seed_text=user_message,
-        )
-        used_technique = "SOCRATIC_DIALOGUE"
-        should_advance = True
-        current_phase = "COGNITIVE_RESTRUCTURING"
-
     elif current_step == "EVIDENCE_AGAINST":
-        variants = [
-            "Теперь попробуем собрать более сбалансированную мысль. Как она могла бы звучать, если учесть и твою ошибку, и факты против самокритики?",
-            "Как можно сформулировать мысль мягче и реалистичнее, без ярлыка на себя?",
-            "Если бы ты говорила с близкой подругой в такой ситуации, какую более справедливую мысль ты бы ей предложила?",
-        ]
+        if is_vague_message(user_message):
+            assistant_reply = (
+                "Если факты против сложно найти, попробуй мягче: что бы ты сказала близкому человеку в такой ситуации?"
+            )
+            used_technique = "SOCRATIC_DIALOGUE"
+            should_advance = False
+            current_phase = "COGNITIVE_RESTRUCTURING"
+        else:
+            variants = [
+                "Теперь попробуем собрать более сбалансированную мысль. Как она могла бы звучать?",
+                "Как можно сформулировать мысль мягче и реалистичнее, без ярлыка на себя?",
+                "Если учесть и трудность ситуации, и факты против автоматической мысли, какая мысль будет справедливее?",
+            ]
 
-        assistant_reply = choose_variant(
-            variants=variants,
-            seed_text=user_message,
-        )
-        used_technique = "REFRAMING"
-        should_advance = True
-        current_phase = "ALTERNATIVE_FORMULATION"
+            assistant_reply = choose_variant(
+                variants=variants,
+                seed_text=user_message,
+            )
+            used_technique = "REFRAMING"
+            should_advance = True
+            current_phase = "ALTERNATIVE_FORMULATION"
 
     elif current_step == "ALTERNATIVE_THOUGHT":
+        if is_alternative_thought_uncertainty_message(user_message):
+            situation = session_data.get("situation")
+            automatic_thought = session_data.get("automatic_thought")
+            evidence_against = session_data.get("evidence_against")
+
+            suggested_thought = "Сейчас мне трудно, но это не значит, что автоматическая мысль полностью верна. Я могу посмотреть на ситуацию более спокойно и опереться на факты."
+
+            if automatic_thought and evidence_against:
+                suggested_thought = (
+                    "Мне сейчас тяжело, но моя автоматическая мысль может быть не всей правдой. "
+                    "Есть факты, которые показывают, что ситуацию можно увидеть мягче и реалистичнее."
+                )
+
+            assistant_reply = (
+                f"Можно взять мягкий черновик: «{suggested_thought}» "
+                "Насколько эта мысль тебе подходит?"
+            )
+
+            used_technique = "REFRAMING"
+            should_advance = False
+            current_phase = "ALTERNATIVE_FORMULATION"
+
+            return {
+                "assistant_reply": clean_assistant_reply(assistant_reply),
+                "should_advance": should_advance,
+                "used_technique": used_technique,
+                "extracted_data": {
+                    "assistant_alternative_thought": suggested_thought
+                },
+                "current_phase": current_phase,
+                "should_finish": False,
+                "diary_readiness_score": 0,
+                "assistant_alternative_thought": suggested_thought,
+                "final_alternative_thought": None,
+            }
+
         variants = [
             "Как теперь изменилась интенсивность эмоций от 0 до 100?",
-            "Давай сравним состояние после разбора. Насколько сейчас сильны тревога, стыд или вина от 0 до 100?",
+            "Давай сравним состояние после разбора. Насколько сейчас сильны эмоции от 0 до 100?",
             "Что изменилось в эмоциях после этой более сбалансированной мысли?",
         ]
 
@@ -489,14 +703,15 @@ def generate_cbt_reply(
         return generate_fake_cbt_reply(
             current_step=current_step,
             user_message=user_message,
+            session_data=session_data,
         )
-
     parsed_result = parse_llm_json_response(raw_llm_response)
 
     if not should_use_llm_result(parsed_result):
         return generate_fake_cbt_reply(
             current_step=current_step,
             user_message=user_message,
+            session_data=session_data,
         )
 
     session_update = parsed_result.session_update.model_dump(exclude_none=True)
@@ -509,10 +724,17 @@ def generate_cbt_reply(
         user_message=user_message,
         should_advance=parsed_result.should_advance,
     )
+    if parsed_result.used_technique == "GROUNDING" and used_technique != "GROUNDING":
+        return generate_fake_cbt_reply(
+            current_step=current_step,
+            user_message=user_message,
+            session_data=session_data,
+        )
 
     current_phase = normalize_current_phase(
         current_step=current_step,
         llm_phase=parsed_result.current_phase,
+        user_message=user_message,
     )
 
     return {
