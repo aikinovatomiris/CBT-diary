@@ -20,90 +20,165 @@ class AdminPendingTherapistsScreen extends StatefulWidget {
 
 class _AdminPendingTherapistsScreenState
     extends State<AdminPendingTherapistsScreen> {
-  late Future<List<TherapistProfileModel>> _therapistsFuture;
+  final List<TherapistProfileModel> _pendingTherapists = [];
+
+  bool _isLoading = true;
+  bool _isRefreshing = false;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _therapistsFuture = AdminService.getPendingTherapists();
+    _loadPendingTherapists();
+  }
+
+  Future<void> _loadPendingTherapists() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final therapists = await AdminService.getPendingTherapists();
+
+      if (!mounted) return;
+
+      setState(() {
+        _pendingTherapists
+          ..clear()
+          ..addAll(therapists);
+        _isLoading = false;
+      });
+    } on ApiException catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        _errorMessage = error.message;
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _errorMessage = 'Не удалось загрузить заявки терапевтов.';
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _refresh() async {
     setState(() {
-      _therapistsFuture = AdminService.getPendingTherapists();
+      _isRefreshing = true;
+      _errorMessage = null;
     });
 
-    await _therapistsFuture;
+    try {
+      final therapists = await AdminService.getPendingTherapists();
+
+      if (!mounted) return;
+
+      setState(() {
+        _pendingTherapists
+          ..clear()
+          ..addAll(therapists);
+      });
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      _showSnackBar(error.message);
+    } catch (_) {
+      if (!mounted) return;
+      _showSnackBar('Не удалось обновить список заявок.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRefreshing = false;
+        });
+      }
+    }
   }
 
-  void _openDetail(TherapistProfileModel therapist) {
+  Future<void> _openDetail(TherapistProfileModel therapist) async {
     final id = therapist.id;
 
     if (id == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('У анкеты нет ID.'),
-        ),
-      );
+      _showSnackBar('У анкеты нет ID.');
       return;
     }
 
-    context.push('/admin/therapists/$id').then((_) {
-      if (context.mounted) {
-        _refresh();
+    final result = await context.push('/admin/therapists/$id');
+
+    if (!mounted) return;
+
+    if (result is Map) {
+      final profileId = result['profileId'];
+      final action = result['action'];
+
+      if (profileId is int) {
+        setState(() {
+          _pendingTherapists.removeWhere((item) => item.id == profileId);
+        });
       }
-    });
+
+      if (action == 'approved') {
+        _showSnackBar('Заявка одобрена');
+      }
+
+      if (action == 'rejected') {
+        _showSnackBar('Заявка отклонена');
+      }
+    }
+  }
+
+  void _showSnackBar(String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<TherapistProfileModel>>(
-      future: _therapistsFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: AppLoading(
-              text: 'Загрузка анкет...',
-            ),
-          );
-        }
+    if (_isLoading) {
+      return const Scaffold(
+        body: AppLoading(
+          text: 'Загрузка заявок...',
+        ),
+      );
+    }
 
-        if (snapshot.hasError) {
-          final error = snapshot.error;
-          final message = error is ApiException
-              ? error.message
-              : 'Не удалось загрузить анкеты терапевтов.';
+    if (_errorMessage != null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Терапевты'),
+        ),
+        body: AppErrorView(
+          message: _errorMessage!,
+          onRetry: _loadPendingTherapists,
+        ),
+      );
+    }
 
-          return Scaffold(
-            appBar: AppBar(
-              title: const Text('Терапевты'),
-            ),
-            body: AppErrorView(
-              message: message,
-              onRetry: _refresh,
-            ),
-          );
-        }
-
-        final therapists = snapshot.data ?? [];
-
-        return _AdminPendingTherapistsContent(
-          therapists: therapists,
-          onRefresh: _refresh,
-          onOpenDetail: _openDetail,
-        );
-      },
+    return _AdminPendingTherapistsContent(
+      therapists: _pendingTherapists,
+      isRefreshing: _isRefreshing,
+      onRefresh: _refresh,
+      onOpenDetail: _openDetail,
     );
   }
 }
 
 class _AdminPendingTherapistsContent extends StatelessWidget {
   final List<TherapistProfileModel> therapists;
+  final bool isRefreshing;
   final Future<void> Function() onRefresh;
   final ValueChanged<TherapistProfileModel> onOpenDetail;
 
   const _AdminPendingTherapistsContent({
     required this.therapists,
+    required this.isRefreshing,
     required this.onRefresh,
     required this.onOpenDetail,
   });
@@ -115,6 +190,21 @@ class _AdminPendingTherapistsContent extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Терапевты'),
+        actions: [
+          IconButton(
+            tooltip: 'Обновить',
+            onPressed: isRefreshing ? null : onRefresh,
+            icon: isRefreshing
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Icon(Icons.refresh_rounded),
+          ),
+        ],
       ),
       body: SafeArea(
         child: LayoutBuilder(
@@ -129,6 +219,7 @@ class _AdminPendingTherapistsContent extends StatelessWidget {
                 child: RefreshIndicator(
                   onRefresh: onRefresh,
                   child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.fromLTRB(
                       AppSpacing.xl,
                       AppSpacing.xl,
@@ -142,7 +233,7 @@ class _AdminPendingTherapistsContent extends StatelessWidget {
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       Text(
-                        'Здесь отображаются специалисты со статусом pending.',
+                        'Здесь отображаются заявки терапевтов со статусом pending.',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -152,7 +243,7 @@ class _AdminPendingTherapistsContent extends StatelessWidget {
                         AppCard(
                           hasShadow: false,
                           child: Text(
-                            'Анкет на модерации пока нет.',
+                            'Нет заявок на модерацию',
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
