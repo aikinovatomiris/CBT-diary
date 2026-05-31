@@ -40,8 +40,6 @@ class AppTextField extends StatelessWidget {
 
     // ============================================================
     // APP TEXT FIELD
-    // Переиспользуемое поле ввода.
-    // Цвета и рамки берутся из AppTheme.
     // ============================================================
 
     return TextField(
@@ -83,7 +81,6 @@ class AppTextField extends StatelessWidget {
                 ),
               ),
 
-        // Дополнительное скругление, если где-то тема не подтянется
         border: OutlineInputBorder(
           borderRadius: AppRadius.large,
         ),

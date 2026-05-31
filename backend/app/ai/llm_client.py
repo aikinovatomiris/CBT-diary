@@ -12,35 +12,16 @@ logger = logging.getLogger(__name__)
 
 LLM_PROVIDER_CHAIN = os.getenv("LLM_PROVIDER_CHAIN", "").strip()
 
-# Старые переменные оставляем для совместимости с твоим проектом
 OLD_LLM_API_KEY = os.getenv("LLM_API_KEY")
 OLD_LLM_MODEL = os.getenv("LLM_MODEL", "gemini-2.5-flash")
 
-# Gemini
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or OLD_LLM_API_KEY
 GEMINI_MODEL = os.getenv("GEMINI_MODEL") or OLD_LLM_MODEL
 
-# Groq
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 
-# OpenRouter, опционально
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-OPENROUTER_MODEL = os.getenv(
-    "OPENROUTER_MODEL",
-    "meta-llama/llama-3.1-8b-instruct:free",
-)
-
-
 def _get_provider_chain() -> list[str]:
-    """
-    Возвращает список провайдеров, которых нужно попробовать по очереди.
-
-    Примеры:
-    LLM_PROVIDER_CHAIN=gemini,groq
-    LLM_PROVIDER_CHAIN=groq,gemini,openrouter
-    LLM_PROVIDER_CHAIN=fake
-    """
 
     if LLM_PROVIDER_CHAIN:
         providers = [

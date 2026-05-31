@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -28,27 +29,32 @@ class MainScaffold extends StatelessWidget {
         return const [
           _MainNavItem(
             label: 'Главная',
-            icon: Icons.home_rounded,
+            icon: Icons.grid_view_rounded,
+            selectedIcon: Icons.grid_view_rounded,
             route: AppRoutes.home,
           ),
           _MainNavItem(
             label: 'Практики',
-            icon: Icons.self_improvement_rounded,
+            icon: CupertinoIcons.sparkles,
+            selectedIcon: CupertinoIcons.sparkles,
             route: AppRoutes.practices,
           ),
           _MainNavItem(
             label: 'Дневник',
-            icon: Icons.book_rounded,
+            icon: CupertinoIcons.book,
+            selectedIcon: CupertinoIcons.book_fill,
             route: AppRoutes.diary,
           ),
           _MainNavItem(
             label: 'Специалисты',
-            icon: Icons.psychology_rounded,
+            icon: CupertinoIcons.person_2,
+            selectedIcon: CupertinoIcons.person_2_fill,
             route: AppRoutes.therapistCatalog,
           ),
           _MainNavItem(
             label: 'Профиль',
-            icon: Icons.person_rounded,
+            icon: CupertinoIcons.person,
+            selectedIcon: CupertinoIcons.person_fill,
             route: AppRoutes.profile,
           ),
         ];
@@ -57,27 +63,32 @@ class MainScaffold extends StatelessWidget {
         return const [
           _MainNavItem(
             label: 'Главная',
-            icon: Icons.home_rounded,
+            icon: Icons.grid_view_rounded,
+            selectedIcon: Icons.grid_view_rounded,
             route: AppRoutes.therapistHome,
           ),
           _MainNavItem(
             label: 'Анкета',
-            icon: Icons.badge_rounded,
+            icon: CupertinoIcons.doc_text,
+            selectedIcon: CupertinoIcons.doc_text_fill,
             route: AppRoutes.therapistCard,
           ),
           _MainNavItem(
             label: 'Сообщения',
-            icon: Icons.forum_rounded,
+            icon: CupertinoIcons.chat_bubble_2,
+            selectedIcon: CupertinoIcons.chat_bubble_2_fill,
             route: AppRoutes.therapistMessages,
           ),
           _MainNavItem(
             label: 'Практики',
-            icon: Icons.self_improvement_rounded,
+            icon: CupertinoIcons.sparkles,
+            selectedIcon: CupertinoIcons.sparkles,
             route: AppRoutes.practices,
           ),
           _MainNavItem(
             label: 'Профиль',
-            icon: Icons.person_rounded,
+            icon: CupertinoIcons.person,
+            selectedIcon: CupertinoIcons.person_fill,
             route: AppRoutes.profile,
           ),
         ];
@@ -86,17 +97,20 @@ class MainScaffold extends StatelessWidget {
         return const [
           _MainNavItem(
             label: 'Админ',
-            icon: Icons.admin_panel_settings_rounded,
+            icon: CupertinoIcons.slider_horizontal_3,
+            selectedIcon: CupertinoIcons.slider_horizontal_3,
             route: AppRoutes.adminHome,
           ),
           _MainNavItem(
             label: 'Терапевты',
-            icon: Icons.psychology_rounded,
+            icon: CupertinoIcons.person_2,
+            selectedIcon: CupertinoIcons.person_2_fill,
             route: AppRoutes.adminTherapists,
           ),
           _MainNavItem(
             label: 'Профиль',
-            icon: Icons.person_rounded,
+            icon: CupertinoIcons.person,
+            selectedIcon: CupertinoIcons.person_fill,
             route: AppRoutes.profile,
           ),
         ];
@@ -184,13 +198,34 @@ class _BottomNavBar extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final navBackground = isDark
-        ? AppColors.darkSurface.withValues(alpha: 0.78)
-        : AppColors.lightSurface.withValues(alpha: 0.78);
+    // ============================================================
+    // NAV COLORS
+    // ============================================================
+    // Панель теперь полностью завязана на AppColors.
+    //
+    // Светлая тема:
+    // - белый фон;
+    // - полупрозрачный lightSurface;
+    // - мягкая белая граница сверху.
+    //
+    // Темная тема:
+    // - фон = AppColors.darkSurface;
+    // - граница = AppColors.darkBorder;
+    // - selected state = AppColors.darkPrimarySoft.
+    // ============================================================
 
-    final navBorder = isDark
-        ? AppColors.darkBorder.withValues(alpha: 0.65)
-        : AppColors.lightBorder.withValues(alpha: 0.85);
+    final navBackground =
+        isDark ? AppColors.darkSurface : AppColors.lightBackground;
+
+    final navOverlay =
+        isDark ? AppColors.darkSurface : AppColors.lightSurface;
+
+    final navBorder =
+        isDark ? AppColors.darkBorder : AppColors.lightBorder;
+
+    final shadowColor = isDark
+        ? AppColors.darkShadow.withValues(alpha: 0.22)
+        : AppColors.lightShadow.withValues(alpha: 0.7);
 
     return Positioned(
       left: 0,
@@ -203,40 +238,58 @@ class _BottomNavBar extends StatelessWidget {
         ),
         child: BackdropFilter(
           filter: ImageFilter.blur(
-            sigmaX: 18,
-            sigmaY: 18,
+            sigmaX: isDark ? 8 : 18,
+            sigmaY: isDark ? 8 : 18,
           ),
-          child: Container(
+          child: DecoratedBox(
             decoration: BoxDecoration(
               color: navBackground,
-              border: Border(
-                top: BorderSide(
-                  color: navBorder,
-                  width: 1,
+              boxShadow: [
+                BoxShadow(
+                  color: shadowColor,
+                  blurRadius: isDark ? 18 : 24,
+                  offset: const Offset(0, -8),
+                ),
+              ],
+            ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: navOverlay,
+                border: Border(
+                  top: BorderSide(
+                    color: navBorder,
+                    width: 1,
+                  ),
                 ),
               ),
-            ),
-            child: SafeArea(
-              top: false,
-              left: false,
-              right: false,
-              bottom: true,
-              minimum: EdgeInsets.zero,
-              child: SizedBox(
-                height: 68,
-                child: Row(
-                  children: List.generate(
-                    items.length,
-                    (index) {
-                      final item = items[index];
+              child: SafeArea(
+                top: false,
+                left: false,
+                right: false,
+                bottom: true,
+                minimum: EdgeInsets.zero,
+                child: SizedBox(
+                  height: 76,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                    ),
+                    child: Row(
+                      children: List.generate(
+                        items.length,
+                        (index) {
+                          final item = items[index];
 
-                      return _NavItem(
-                        icon: item.icon,
-                        label: item.label,
-                        isSelected: selectedIndex == index,
-                        onTap: () => onTap(index),
-                      );
-                    },
+                          return _NavItem(
+                            icon: item.icon,
+                            selectedIcon: item.selectedIcon,
+                            label: item.label,
+                            isSelected: selectedIndex == index,
+                            onTap: () => onTap(index),
+                          );
+                        },
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -250,12 +303,14 @@ class _BottomNavBar extends StatelessWidget {
 
 class _NavItem extends StatelessWidget {
   final IconData icon;
+  final IconData selectedIcon;
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
 
   const _NavItem({
     required this.icon,
+    required this.selectedIcon,
     required this.label,
     required this.isSelected,
     required this.onTap,
@@ -264,38 +319,54 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
-    final selectedColor = theme.colorScheme.primary;
-    final unselectedColor = theme.colorScheme.onSurfaceVariant;
+    final selectedColor =
+        isDark ? AppColors.darkPrimary : AppColors.lightPrimary;
+
+    final unselectedColor =
+        isDark ? AppColors.darkMutedText : AppColors.lightMutedText;
+
+    final selectedBackground =
+        isDark ? AppColors.darkPrimarySoft : AppColors.lightPrimarySoft;
+
+    final selectedBorder = isDark
+        ? AppColors.darkPrimary.withValues(alpha: 0.16)
+        : AppColors.lightPrimary.withValues(alpha: 0.12);
 
     return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.xs,
-            vertical: AppSpacing.sm,
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 23,
-                color: isSelected ? selectedColor : unselectedColor,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: isSelected ? selectedColor : unselectedColor,
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                  fontSize: 10.5,
+      child: Semantics(
+        button: true,
+        selected: isSelected,
+        label: label,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Center(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              width: 54,
+              height: 46,
+              decoration: BoxDecoration(
+                color: isSelected ? selectedBackground : Colors.transparent,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(
+                  color: isSelected ? selectedBorder : Colors.transparent,
+                  width: 1,
                 ),
               ),
-            ],
+              child: AnimatedScale(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
+                scale: isSelected ? 1.06 : 1,
+                child: Icon(
+                  isSelected ? selectedIcon : icon,
+                  size: isSelected ? 28 : 27,
+                  color: isSelected ? selectedColor : unselectedColor,
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -306,11 +377,13 @@ class _NavItem extends StatelessWidget {
 class _MainNavItem {
   final String label;
   final IconData icon;
+  final IconData selectedIcon;
   final String route;
 
   const _MainNavItem({
     required this.label,
     required this.icon,
+    required this.selectedIcon,
     required this.route,
   });
 }

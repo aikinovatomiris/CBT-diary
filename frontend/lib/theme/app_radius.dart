@@ -5,10 +5,9 @@ class AppRadius {
 
   // ============================================================
   // RADIUS SCALE
-  // Скругления 18-28, как ты просила.
   // ============================================================
 
-  static const double sm = 16;
+  static const double sm = 14;
   static const double md = 18;
   static const double lg = 22;
   static const double xl = 28;
@@ -19,4 +18,14 @@ class AppRadius {
   static BorderRadius large = BorderRadius.circular(lg);
   static BorderRadius extraLarge = BorderRadius.circular(xl);
   static BorderRadius huge = BorderRadius.circular(xxl);
+
+  // ============================================================
+  // SEMANTIC ALIASES
+  // ============================================================
+
+  static BorderRadius chip = small;
+  static BorderRadius field = large;
+  static BorderRadius button = large;
+  static BorderRadius card = extraLarge;
+  static BorderRadius sheet = huge;
 }

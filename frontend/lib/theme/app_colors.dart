@@ -4,88 +4,146 @@ class AppColors {
   AppColors._();
 
   // ============================================================
-  // LIGHT THEME
-  // Основная идея: не белый медицинский фон, а мягкий холодный lavender.
-  // Если захочешь изменить настроение приложения — начинай отсюда.
+  // BASE COLORS
   // ============================================================
 
-  // Главный фон экранов
-  static const Color lightBackground = Color(0xFFF4F2FF);
+  // Белый цвет для текста на синих кнопках, активных бейджах, иконках.
+  static const Color white = Color(0xFFFFFFFF);
 
-  // Фон карточек
-  static const Color lightSurface = Color(0xFFFFFFFF);
+  // Почти черный цвет для основного текста в светлой теме.
+  static const Color black = Color(0xFF050505);
 
-  // Вторичный мягкий фон для блоков, чипов, иконок
-  static const Color lightSurfaceSoft = Color(0xFFECE9FF);
+  // Единый синий акцент для обеих тем.
+  // Используется для основных кнопок, активных иконок, focus-состояний.
+  static const Color blue = Color(0xFF2563EB);
 
-  // Основной акцент: приглушенный сине-фиолетовый
-  static const Color lightPrimary = Color(0xFF6F6AE8);
+  // Мягкий синий фон для selected states, чипов, иконок.
+  static const Color blueSoft = Color(0xFFEAF1FF);
 
-  // Более мягкий акцент для фона кнопок/иконок
-  static const Color lightPrimarySoft = Color(0xFFE4E1FF);
+  // ============================================================
+  // LIGHT THEME
+  // ============================================================
+  // Светлая тема:
+  // - почти белый фон;
+  // - полупрозрачные светло-серые карточки;
+  // - черный основной текст;
+  // - серый второстепенный текст;
+  // - белые границы;
+  // - мягкие почти незаметные тени.
 
-  // Второй акцент: спокойный голубовато-лавандовый
-  static const Color lightSecondary = Color(0xFF9AA7E8);
+  // Главный фон экранов.
+  static const Color lightBackground = Color(0xFFFEFEFE);
 
-  // Основной текст
-  static const Color lightText = Color(0xFF242335);
+  // Фон карточек.
+  static const Color lightSurface = Color.fromARGB(132, 210, 210, 210);
 
-  // Второстепенный текст
-  static const Color lightMutedText = Color(0xFF7B7892);
+  // Вторичный фон для input, чипов, небольших блоков.
+  static const Color lightSurfaceSoft = Color(0xFFEFF1F4);
 
-  // Границы полей и карточек
-  static const Color lightBorder = Color(0xFFE1DEF3);
+  // Основной акцент.
+  static const Color lightPrimary = blue;
 
-  // Ошибка, но не слишком яркая
-  static const Color lightError = Color(0xFFD96A7A);
+  // Мягкий акцент для фонов активных элементов.
+  static const Color lightPrimarySoft = blueSoft;
 
-  // Успешное состояние
-  static const Color lightSuccess = Color(0xFF72A991);
+  // Второй акцент сейчас не используется.
+  static const Color lightSecondary = lightPrimary;
+
+  // Основной текст.
+  static const Color lightText = black;
+
+  // Текст на primary-кнопках и синих активных элементах.
+  static const Color lightOnPrimary = white;
+
+  // Alias для случаев, где нужен белый текст в светлой теме.
+  static const Color lightWhiteText = white;
+
+  // Второстепенный текст.
+  static const Color lightMutedText = Color(0xFF6B7280);
+
+  // Более мягкий текст: hint, caption, disabled-like состояния.
+  static const Color lightSoftText = Color(0xFF9CA3AF);
+
+  // Границы карточек.
+  // Белая граница дает мягкий glass-like эффект.
+  static const Color lightBorder = Color(0xFFFFFFFF);
+
+  // Разделители и тонкие технические линии.
+  static const Color lightDivider = Color(0xFFE8EAEE);
+
+  // Ошибка.
+  static const Color lightError = Color(0xFFE05A6A);
+
+  // Успешное состояние.
+  static const Color lightSuccess = Color(0xFF35A67B);
+
+  // Предупреждение.
+  static const Color lightWarning = Color(0xFFE6A23C);
 
   // ============================================================
   // DARK THEME
-  // Темная тема не чисто черная, а глубокая фиолетово-синяя.
-  // Это ближе к референсу и выглядит мягче для приложения про эмоции.
   // ============================================================
+  // Темная тема:
+  // - фон почти черный;
+  // - карточки плотные темно-серые;
+  // - границы почти незаметные;
+  // - текст белый;
+  // - второстепенный текст серый;
+  // - синий акцент такой же, как в светлой теме.
 
-  // Главный фон экранов
-  static const Color darkBackground = Color(0xFF0E0D1B);
+  // Главный фон экранов.
+  static const Color darkBackground = Color(0xFF0B0B0D);
 
-  // Фон карточек
-  static const Color darkSurface = Color(0xFF18172A);
+  // Фон карточек и нижней навигации.
+  static const Color darkSurface = Color.fromARGB(255, 25, 25, 25);
 
-  // Вторичный фон
-  static const Color darkSurfaceSoft = Color(0xFF24223B);
+  // Вторичный темный фон для input, snackbar, selected blocks.
+  static const Color darkSurfaceSoft = Color.fromARGB(255, 32, 32, 32);
 
-  // Основной акцент
-  static const Color darkPrimary = Color(0xFFA9A6FF);
+  // Основной акцент.
+  static const Color darkPrimary = blue;
 
-  // Мягкий акцент для фона кнопок/иконок
-  static const Color darkPrimarySoft = Color(0xFF302E63);
+  // Мягкий синий фон для active/selected states.
+  static const Color darkPrimarySoft = Color(0x332563EB);
 
-  // Второй акцент
-  static const Color darkSecondary = Color(0xFF93A5E8);
+  // Второй акцент сейчас не используется.
+  // Оставлен как alias, чтобы не сломать старый код.
+  static const Color darkSecondary = darkPrimary;
 
-  // Основной текст
-  static const Color darkText = Color(0xFFF4F2FF);
+  // Основной текст.
+  static const Color darkText = Color(0xFFF9FAFB);
 
-  // Второстепенный текст
-  static const Color darkMutedText = Color(0xFFB7B3D0);
+  // Текст на primary-кнопках.
+  static const Color darkOnPrimary = white;
 
-  // Границы
-  static const Color darkBorder = Color(0xFF34314F);
+  // Alias для белого текста.
+  static const Color darkWhiteText = white;
 
-  // Ошибка
-  static const Color darkError = Color(0xFFFF8FA0);
+  // Второстепенный текст.
+  static const Color darkMutedText = Color(0xFFA1A1AA);
 
-  // Успешное состояние
-  static const Color darkSuccess = Color(0xFF9AD8BD);
+  // Самый мягкий текст: hint, подписи, disabled-like состояния.
+  static const Color darkSoftText = Color(0xFF71717A);
+
+  // Границы карточек и нижней панели.
+  static const Color darkBorder = Color.fromARGB(255, 28, 28, 28);
+
+  // Разделители.
+  static const Color darkDivider = darkBorder;
+
+  // Ошибка.
+  static const Color darkError = Color(0xFFFF6B7A);
+
+  // Успешное состояние.
+  static const Color darkSuccess = Color(0xFF4ADE80);
+
+  // Предупреждение.
+  static const Color darkWarning = Color(0xFFFBBF24);
 
   // ============================================================
   // SHADOWS
-  // Цвета теней. Тени очень мягкие, без тяжелого Material-эффекта.
   // ============================================================
 
-  static const Color lightShadow = Color(0x1A4F4A7A);
+  static const Color lightShadow = Color(0x14000000);
   static const Color darkShadow = Color(0x66000000);
 }

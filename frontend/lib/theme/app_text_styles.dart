@@ -5,17 +5,12 @@ class AppTextStyles {
 
   // ============================================================
   // FONT
-  // Здесь позже можно подключить свой шрифт.
-  // Например: Inter, SF Pro, Manrope.
-  // Пока null = системный шрифт Flutter.
   // ============================================================
 
-  static const String? fontFamily = null;
+  static const String fontFamily = 'SF Pro Display';
 
   // ============================================================
   // FONT SIZES
-  // Основные размеры текста.
-  // Меняй здесь, если захочешь сделать интерфейс крупнее/мельче.
   // ============================================================
 
   static const double headlineLarge = 32;
@@ -35,7 +30,7 @@ class AppTextStyles {
       headlineLarge: TextStyle(
         fontFamily: fontFamily,
         fontSize: headlineLarge,
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.w700,
         height: 1.08,
         letterSpacing: -0.7,
         color: textColor,
@@ -43,31 +38,33 @@ class AppTextStyles {
       headlineMedium: TextStyle(
         fontFamily: fontFamily,
         fontSize: headlineMedium,
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.w700,
         height: 1.14,
-        letterSpacing: -0.4,
+        letterSpacing: -0.45,
         color: textColor,
       ),
       titleLarge: TextStyle(
         fontFamily: fontFamily,
         fontSize: titleLarge,
-        fontWeight: FontWeight.w800,
-        height: 1.2,
-        letterSpacing: -0.2,
+        fontWeight: FontWeight.w700,
+        height: 1.22,
+        letterSpacing: -0.25,
         color: textColor,
       ),
       titleMedium: TextStyle(
         fontFamily: fontFamily,
         fontSize: titleMedium,
-        fontWeight: FontWeight.w700,
-        height: 1.25,
+        fontWeight: FontWeight.w600,
+        height: 1.3,
+        letterSpacing: -0.15,
         color: textColor,
       ),
       bodyLarge: TextStyle(
         fontFamily: fontFamily,
         fontSize: bodyLarge,
-        fontWeight: FontWeight.w500,
+        fontWeight: FontWeight.w400,
         height: 1.5,
+        letterSpacing: -0.05,
         color: textColor,
       ),
       bodyMedium: TextStyle(
@@ -87,9 +84,24 @@ class AppTextStyles {
       labelLarge: TextStyle(
         fontFamily: fontFamily,
         fontSize: button,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w600,
         height: 1.2,
+        letterSpacing: -0.1,
         color: textColor,
+      ),
+      labelMedium: TextStyle(
+        fontFamily: fontFamily,
+        fontSize: bodyMedium,
+        fontWeight: FontWeight.w500,
+        height: 1.25,
+        color: mutedTextColor,
+      ),
+      labelSmall: TextStyle(
+        fontFamily: fontFamily,
+        fontSize: bodySmall,
+        fontWeight: FontWeight.w500,
+        height: 1.2,
+        color: mutedTextColor,
       ),
     );
   }
