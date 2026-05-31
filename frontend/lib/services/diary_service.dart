@@ -10,11 +10,6 @@ class DiaryService {
 
   // ============================================================
   // GET /diary
-  //
-  // Получить список дневниковых записей текущего пользователя.
-  //
-  // Backend response:
-  // List[DiaryEntryResponse]
   // ============================================================
 
   static Future<List<DiaryEntryModel>> getEntries() async {
@@ -47,11 +42,6 @@ class DiaryService {
 
   // ============================================================
   // GET /diary/{entry_id}
-  //
-  // Получить одну дневниковую запись.
-  //
-  // Backend response:
-  // DiaryEntryResponse
   // ============================================================
 
   static Future<DiaryEntryModel> getEntry(int id) async {
@@ -71,14 +61,6 @@ class DiaryService {
 
   // ============================================================
   // DELETE /diary/{entry_id}
-  //
-  // Удалить дневниковую запись.
-  //
-  // Backend response:
-  // {
-  //   "message": "...",
-  //   "deleted_entry_id": 1
-  // }
   // ============================================================
 
   static Future<DeleteDiaryEntryResponseModel> deleteEntry(int id) async {
@@ -98,12 +80,6 @@ class DiaryService {
 
   // ============================================================
   // GET /diary/{entry_id}/export-text
-  //
-  // Экспорт дневниковой записи в текстовом виде.
-  //
-  // Важно:
-  // Backend возвращает text/plain, а не JSON.
-  // Поэтому здесь используем ResponseType.plain.
   // ============================================================
 
   static Future<String> exportEntryText(int id) async {

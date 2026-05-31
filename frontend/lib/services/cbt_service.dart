@@ -99,17 +99,6 @@ class CbtService {
   }
 
   /// POST /cbt/sessions/{session_id}/message
-  ///
-  /// Backend возвращает:
-  /// {
-  ///   "user_message": {...},
-  ///   "assistant_message": {...},
-  ///   "current_step": "...",
-  ///   "current_phase": "...",
-  ///   "session_status": "..."
-  /// }
-  ///
-  /// Оставляем Map, чтобы не терять нестандартные поля backend.
   static Future<Map<String, dynamic>> sendMessage(
     int sessionId,
     String content,
@@ -141,9 +130,6 @@ class CbtService {
   }
 
   /// POST /cbt/sessions/{session_id}/finish
-  ///
-  /// Backend может вернуть DiaryEntryResponse.
-  /// Возвращаем Map, чтобы UI сам достал id записи.
   static Future<Map<String, dynamic>> finishSession(int sessionId) async {
     try {
       final response = await ApiClient.post(

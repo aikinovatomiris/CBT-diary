@@ -35,7 +35,7 @@ class AppColors {
   static const Color lightBackground = Color(0xFFFEFEFE);
 
   // Фон карточек.
-  static const Color lightSurface = Color.fromARGB(132, 210, 210, 210);
+  static const Color lightSurface = Color(0xFFF8F9FE);
 
   // Вторичный фон для input, чипов, небольших блоков.
   static const Color lightSurfaceSoft = Color(0xFFEFF1F4);

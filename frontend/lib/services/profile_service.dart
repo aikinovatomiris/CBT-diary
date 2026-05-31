@@ -8,14 +8,6 @@ class ProfileService {
 
   // ============================================================
   // PATCH /profile/assistant-style
-  //
-  // Request:
-  // {
-  //   "assistant_style": "supportive" | "friendly" | "structured" | "concise"
-  // }
-  //
-  // Response:
-  // UserResponse
   // ============================================================
 
   static Future<UserModel> updateAssistantStyle(String assistantStyle) async {
@@ -40,17 +32,6 @@ class ProfileService {
 
   // ============================================================
   // PATCH /profile/change-password
-  //
-  // Request:
-  // {
-  //   "old_password": "...",
-  //   "new_password": "..."
-  // }
-  //
-  // Response:
-  // {
-  //   "message": "Пароль успешно изменен"
-  // }
   // ============================================================
 
   static Future<ChangePasswordResponseModel> changePassword({
