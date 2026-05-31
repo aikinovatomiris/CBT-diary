@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../models/therapist_profile_model.dart';
 import '../../services/api_exception.dart';
 import '../../services/therapist_service.dart';
+import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/url_helper.dart';
@@ -111,10 +112,12 @@ class _TherapistCatalogScreenState extends State<TherapistCatalogScreen> {
 
       final matchesCity = _cityFilter.isEmpty || city.contains(_cityFilter);
 
-      final matchesOnline = _onlineAvailable == null ||
+      final matchesOnline =
+          _onlineAvailable == null ||
           therapist.onlineAvailable == _onlineAvailable;
 
-      final isApproved = therapist.status == null || therapist.status == 'approved';
+      final isApproved =
+          therapist.status == null || therapist.status == 'approved';
 
       return isApproved && matchesSearch && matchesCity && matchesOnline;
     }).toList();
@@ -167,15 +170,20 @@ class _TherapistCatalogScreenState extends State<TherapistCatalogScreen> {
               : 'Не удалось загрузить каталог специалистов.';
 
           return Scaffold(
-            appBar: AppBar(
-              title: const Text('Специалисты'),
-              actions: const [
-                UserMessagesAction(),
-              ],
-            ),
-            body: AppErrorView(
-              message: message,
-              onRetry: _refresh,
+            body: SafeArea(
+              child: Column(
+                children: [
+                  const _CatalogHeader(
+                    compact: true,
+                  ),
+                  Expanded(
+                    child: AppErrorView(
+                      message: message,
+                      onRetry: _refresh,
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         }
@@ -224,15 +232,7 @@ class _TherapistCatalogContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Специалисты'),
-        actions: const [
-          UserMessagesAction(),
-        ],
-      ),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -253,17 +253,7 @@ class _TherapistCatalogContent extends StatelessWidget {
                       110,
                     ),
                     children: [
-                      Text(
-                        'Каталог специалистов',
-                        style: theme.textTheme.headlineMedium,
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        'Здесь отображаются специалисты, анкеты которых одобрены модерацией.',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
+                      const _CatalogHeader(),
 
                       const SizedBox(height: AppSpacing.xl),
 
@@ -288,10 +278,9 @@ class _TherapistCatalogContent extends StatelessWidget {
 
                       Align(
                         alignment: Alignment.centerLeft,
-                        child: TextButton.icon(
-                          onPressed: onToggleOnlineFilter,
-                          icon: const Icon(Icons.tune_rounded),
-                          label: Text(onlineFilterTitle),
+                        child: _FormatFilterButton(
+                          title: onlineFilterTitle,
+                          onTap: onToggleOnlineFilter,
                         ),
                       ),
 
@@ -327,6 +316,176 @@ class _TherapistCatalogContent extends StatelessWidget {
   }
 }
 
+class _CatalogHeader extends StatelessWidget {
+  final bool compact;
+
+  const _CatalogHeader({
+    this.compact = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    final horizontalPadding = compact ? AppSpacing.xl : 0.0;
+    final verticalPadding = compact ? AppSpacing.xl : 0.0;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        horizontalPadding,
+        verticalPadding,
+        horizontalPadding,
+        compact ? AppSpacing.md : 0,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Специалисты',
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    letterSpacing: -0.7,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'Каталог одобренных терапевтов',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          const _MessagesActionShell(),
+        ],
+      ),
+    );
+  }
+}
+
+class _MessagesActionShell extends StatelessWidget {
+  const _MessagesActionShell();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final backgroundColor =
+        isDark ? AppColors.darkSurface : AppColors.lightSurface;
+
+    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: AppRadius.large,
+        border: Border.all(
+          color: borderColor,
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? AppColors.darkShadow.withOpacity(0.12)
+                : AppColors.lightShadow.withOpacity(0.45),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: IconTheme(
+        data: IconThemeData(
+          color: theme.colorScheme.primary,
+          size: 21,
+        ),
+        child: const UserMessagesAction(),
+      ),
+    );
+  }
+}
+
+class _FormatFilterButton extends StatelessWidget {
+  final String title;
+  final VoidCallback onTap;
+
+  const _FormatFilterButton({
+    required this.title,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final isActive = title != 'Все форматы';
+
+    final backgroundColor = isActive
+        ? theme.colorScheme.primary.withOpacity(isDark ? 0.18 : 0.11)
+        : isDark
+            ? AppColors.darkSurface
+            : AppColors.lightSurface;
+
+    final borderColor = isActive
+        ? theme.colorScheme.primary.withOpacity(isDark ? 0.28 : 0.16)
+        : isDark
+            ? AppColors.darkBorder
+            : AppColors.lightBorder;
+
+    final contentColor =
+        isActive ? theme.colorScheme.primary : theme.colorScheme.onSurface;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.large,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: AppRadius.large,
+            border: Border.all(
+              color: borderColor,
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.tune_rounded,
+                size: 17,
+                color: contentColor,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                title,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: contentColor,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.05,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _TherapistCard extends StatelessWidget {
   final TherapistProfileModel therapist;
   final VoidCallback onTap;
@@ -342,6 +501,12 @@ class _TherapistCard extends StatelessWidget {
     final photoUrl = UrlHelper.buildFileUrl(therapist.photoUrl);
     final hasPhoto = photoUrl.isNotEmpty;
 
+    final name = _safeText(therapist.fullName, 'Специалист');
+    final qualification = _safeText(
+      therapist.qualification,
+      'Квалификация не указана',
+    );
+
     return AppCard(
       hasShadow: false,
       onTap: onTap,
@@ -350,18 +515,9 @@ class _TherapistCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 34,
-                backgroundColor:
-                    theme.colorScheme.primary.withValues(alpha: 0.12),
-                backgroundImage: hasPhoto ? NetworkImage(photoUrl) : null,
-                child: hasPhoto
-                    ? null
-                    : Icon(
-                        Icons.person_rounded,
-                        color: theme.colorScheme.primary,
-                        size: 34,
-                      ),
+              _TherapistAvatar(
+                photoUrl: photoUrl,
+                hasPhoto: hasPhoto,
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
@@ -369,12 +525,19 @@ class _TherapistCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _safeText(therapist.fullName, 'Специалист'),
-                      style: theme.textTheme.titleLarge,
+                      name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.45,
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      _safeText(therapist.qualification, 'Квалификация не указана'),
+                      qualification,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -382,12 +545,17 @@ class _TherapistCard extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(width: AppSpacing.sm),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: theme.colorScheme.onSurfaceVariant,
+                size: 24,
+              ),
             ],
           ),
 
-          const SizedBox(height: AppSpacing.lg),
-
           if (therapist.specializations.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.lg),
             Wrap(
               spacing: AppSpacing.sm,
               runSpacing: AppSpacing.sm,
@@ -395,26 +563,29 @@ class _TherapistCard extends StatelessWidget {
                 return _Chip(text: item);
               }).toList(),
             ),
-            const SizedBox(height: AppSpacing.lg),
           ],
 
-          _InfoLine(
-            icon: Icons.location_on_outlined,
-            text: _safeText(therapist.city, 'Город не указан'),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          _InfoLine(
-            icon: Icons.payments_outlined,
-            text: therapist.price == null || therapist.price!.trim().isEmpty
-                ? 'Цена не указана'
-                : therapist.price!.trim(),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          _InfoLine(
-            icon: Icons.wifi_rounded,
-            text: therapist.onlineAvailable == true
-                ? 'Онлайн'
-                : 'Очно / по договоренности',
+          const SizedBox(height: AppSpacing.lg),
+
+          _TherapistInfoPanel(
+            children: [
+              _InfoLine(
+                icon: Icons.location_on_outlined,
+                text: _safeText(therapist.city, 'Город не указан'),
+              ),
+              _InfoLine(
+                icon: Icons.payments_outlined,
+                text: therapist.price == null || therapist.price!.trim().isEmpty
+                    ? 'Цена не указана'
+                    : therapist.price!.trim(),
+              ),
+              _InfoLine(
+                icon: Icons.laptop_mac_rounded,
+                text: therapist.onlineAvailable == true
+                    ? 'Онлайн'
+                    : 'Очно / по договоренности',
+              ),
+            ],
           ),
 
           const SizedBox(height: AppSpacing.lg),
@@ -435,6 +606,87 @@ class _TherapistCard extends StatelessWidget {
   }
 }
 
+class _TherapistAvatar extends StatelessWidget {
+  final String photoUrl;
+  final bool hasPhoto;
+
+  const _TherapistAvatar({
+    required this.photoUrl,
+    required this.hasPhoto,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      width: 72,
+      height: 72,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: theme.colorScheme.primary.withOpacity(0.10),
+        border: Border.all(
+          color: theme.colorScheme.primary.withOpacity(0.12),
+          width: 1,
+        ),
+      ),
+      child: CircleAvatar(
+        backgroundColor: theme.colorScheme.primary.withOpacity(0.10),
+        backgroundImage: hasPhoto ? NetworkImage(photoUrl) : null,
+        child: hasPhoto
+            ? null
+            : Icon(
+                Icons.person_outline_rounded,
+                color: theme.colorScheme.primary,
+                size: 32,
+              ),
+      ),
+    );
+  }
+}
+
+class _TherapistInfoPanel extends StatelessWidget {
+  final List<Widget> children;
+
+  const _TherapistInfoPanel({
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final backgroundColor = isDark
+        ? AppColors.darkSurfaceSoft.withOpacity(0.72)
+        : AppColors.white.withOpacity(0.52);
+
+    final borderColor =
+        isDark ? AppColors.darkBorder : AppColors.white.withOpacity(0.78);
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: AppRadius.large,
+        border: Border.all(
+          color: borderColor,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          for (int i = 0; i < children.length; i++) ...[
+            children[i],
+            if (i != children.length - 1)
+              const SizedBox(height: AppSpacing.sm),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _Chip extends StatelessWidget {
   final String text;
 
@@ -445,6 +697,15 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final backgroundColor = theme.colorScheme.primary.withOpacity(
+      isDark ? 0.16 : 0.10,
+    );
+
+    final borderColor = theme.colorScheme.primary.withOpacity(
+      isDark ? 0.18 : 0.12,
+    );
 
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -452,14 +713,19 @@ class _Chip extends StatelessWidget {
         vertical: AppSpacing.sm,
       ),
       decoration: BoxDecoration(
-        color: theme.colorScheme.primary.withValues(alpha: 0.10),
+        color: backgroundColor,
         borderRadius: AppRadius.large,
+        border: Border.all(
+          color: borderColor,
+          width: 1,
+        ),
       ),
       child: Text(
         text,
         style: theme.textTheme.bodySmall?.copyWith(
           color: theme.colorScheme.primary,
           fontWeight: FontWeight.w700,
+          letterSpacing: -0.05,
         ),
       ),
     );
@@ -481,19 +747,47 @@ class _InfoLine extends StatelessWidget {
 
     return Row(
       children: [
-        Icon(
-          icon,
-          size: 18,
-          color: theme.colorScheme.primary,
-        ),
+        _InfoIcon(icon: icon),
         const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: Text(
             text,
-            style: theme.textTheme.bodyMedium,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w500,
+              letterSpacing: -0.05,
+            ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _InfoIcon extends StatelessWidget {
+  final IconData icon;
+
+  const _InfoIcon({
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Icon(
+        icon,
+        size: 15,
+        color: theme.colorScheme.primary,
+      ),
     );
   }
 }
@@ -507,11 +801,25 @@ class _EmptyTherapistsState extends StatelessWidget {
 
     return AppCard(
       hasShadow: false,
-      child: Text(
-        'Пока нет одобренных специалистов.',
-        style: theme.textTheme.bodyMedium?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _EmptyIcon(
+            icon: Icons.person_search_rounded,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'Пока нет одобренных специалистов',
+            style: theme.textTheme.titleLarge,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Когда администратор одобрит анкеты специалистов, они появятся здесь.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -526,11 +834,56 @@ class _NoTherapistSearchResultsState extends StatelessWidget {
 
     return AppCard(
       hasShadow: false,
-      child: Text(
-        'По вашему запросу специалисты не найдены.',
-        style: theme.textTheme.bodyMedium?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _EmptyIcon(
+            icon: Icons.search_off_rounded,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'Специалисты не найдены',
+            style: theme.textTheme.titleLarge,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Попробуй изменить поиск, город или формат консультации.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyIcon extends StatelessWidget {
+  final IconData icon;
+
+  const _EmptyIcon({
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary.withOpacity(0.11),
+        borderRadius: AppRadius.large,
+        border: Border.all(
+          color: theme.colorScheme.primary.withOpacity(0.10),
+          width: 1,
         ),
+      ),
+      child: Icon(
+        icon,
+        color: theme.colorScheme.primary,
+        size: 21,
       ),
     );
   }

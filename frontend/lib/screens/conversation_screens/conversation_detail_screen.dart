@@ -7,13 +7,12 @@ import '../../navigation/app_routes.dart';
 import '../../services/api_exception.dart';
 import '../../services/auth_service.dart';
 import '../../services/conversation_service.dart';
+import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
 import '../../theme/app_spacing.dart';
-import '../../widgets/app_button.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/app_error_view.dart';
 import '../../widgets/app_loading.dart';
-import '../../widgets/app_text_field.dart';
 
 class ConversationDetailScreen extends StatefulWidget {
   final String? conversationId;
@@ -476,9 +475,8 @@ class _MessageBubble extends StatelessWidget {
         ? theme.colorScheme.primary
         : theme.cardTheme.color ?? theme.colorScheme.surface;
 
-    final textColor = isMine
-        ? theme.colorScheme.onPrimary
-        : theme.colorScheme.onSurface;
+    final textColor =
+        isMine ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface;
 
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
@@ -506,7 +504,7 @@ class _MessageBubble extends StatelessWidget {
           border: isMine
               ? null
               : Border.all(
-                  color: theme.dividerColor.withValues(alpha: 0.6),
+                  color: theme.dividerColor.withOpacity(0.6),
                 ),
         ),
         child: hasSharedDiary
@@ -545,15 +543,26 @@ class _SharedDiaryMessageCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final cardBackground = isMine
+        ? AppColors.white.withOpacity(isDark ? 0.13 : 0.12)
+        : theme.colorScheme.primary.withOpacity(isDark ? 0.12 : 0.08);
+
+    final cardBorder = isMine
+        ? AppColors.white.withOpacity(isDark ? 0.16 : 0.18)
+        : theme.colorScheme.primary.withOpacity(isDark ? 0.20 : 0.12);
 
     return Container(
       width: 260,
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: isMine
-            ? theme.colorScheme.onPrimary.withValues(alpha: 0.12)
-            : theme.colorScheme.primary.withValues(alpha: 0.08),
+        color: cardBackground,
         borderRadius: AppRadius.large,
+        border: Border.all(
+          color: cardBorder,
+          width: 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -575,17 +584,62 @@ class _SharedDiaryMessageCard extends StatelessWidget {
           Text(
             'Дневниковая запись, отправленная в переписку.',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: textColor.withValues(alpha: 0.8),
+              color: textColor.withOpacity(0.8),
             ),
           ),
           const SizedBox(height: AppSpacing.md),
-          AppButton(
-            text: 'Открыть',
+          _SharedDiaryOpenButton(
             isLoading: isLoading,
-            variant: isMine ? AppButtonVariant.secondary : AppButtonVariant.secondary,
             onPressed: onOpen,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SharedDiaryOpenButton extends StatelessWidget {
+  final bool isLoading;
+  final VoidCallback onPressed;
+
+  const _SharedDiaryOpenButton({
+    required this.isLoading,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return SizedBox(
+      width: double.infinity,
+      height: 44,
+      child: Material(
+        color: AppColors.white,
+        borderRadius: AppRadius.large,
+        child: InkWell(
+          onTap: isLoading ? null : onPressed,
+          borderRadius: AppRadius.large,
+          child: Center(
+            child: isLoading
+                ? SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: theme.colorScheme.primary,
+                    ),
+                  )
+                : Text(
+                    'Открыть',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.15,
+                    ),
+                  ),
+          ),
+        ),
       ),
     );
   }
@@ -605,13 +659,19 @@ class _MessageInput extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final inputBackground =
+        isDark ? AppColors.darkSurface : AppColors.lightSurface;
+
+    final inputBorder = isDark ? AppColors.darkBorder : AppColors.lightBorder;
 
     return Container(
       decoration: BoxDecoration(
         color: theme.scaffoldBackgroundColor,
         border: Border(
           top: BorderSide(
-            color: theme.dividerColor.withValues(alpha: 0.7),
+            color: isDark ? AppColors.darkBorder : AppColors.lightDivider,
           ),
         ),
       ),
@@ -625,17 +685,50 @@ class _MessageInput extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Expanded(
-            child: AppTextField(
-              controller: controller,
-              hint: 'Напишите сообщение...',
-              maxLines: 4,
-              enabled: !isSending,
+            child: Container(
+              constraints: const BoxConstraints(
+                minHeight: 48,
+                maxHeight: 132,
+              ),
+              decoration: BoxDecoration(
+                color: inputBackground,
+                borderRadius: AppRadius.large,
+                border: Border.all(
+                  color: inputBorder,
+                  width: 1,
+                ),
+              ),
+              child: TextField(
+                controller: controller,
+                enabled: !isSending,
+                minLines: 1,
+                maxLines: 5,
+                keyboardType: TextInputType.multiline,
+                textInputAction: TextInputAction.newline,
+                style: theme.textTheme.bodyMedium,
+                cursorColor: theme.colorScheme.primary,
+                decoration: InputDecoration(
+                  hintText: 'Напишите сообщение...',
+                  hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  filled: false,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.lg,
+                    vertical: 13,
+                  ),
+                ),
+              ),
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
           SizedBox(
-            width: 50,
-            height: 50,
+            width: 48,
+            height: 48,
             child: FilledButton(
               onPressed: isSending ? null : onSend,
               style: FilledButton.styleFrom(
@@ -646,13 +739,16 @@ class _MessageInput extends StatelessWidget {
               ),
               child: isSending
                   ? const SizedBox(
-                      width: 20,
-                      height: 20,
+                      width: 19,
+                      height: 19,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                       ),
                     )
-                  : const Icon(Icons.send_rounded),
+                  : const Icon(
+                      Icons.arrow_upward_rounded,
+                      size: 22,
+                    ),
             ),
           ),
         ],

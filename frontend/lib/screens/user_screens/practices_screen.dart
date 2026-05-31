@@ -18,9 +18,6 @@ class PracticesScreen extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Практики'),
-      ),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {

@@ -8,13 +8,13 @@ import '../../models/cbt_session_model.dart';
 import '../../navigation/app_routes.dart';
 import '../../services/api_exception.dart';
 import '../../services/cbt_service.dart';
+import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
 import '../../theme/app_spacing.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/app_error_view.dart';
 import '../../widgets/app_loading.dart';
-import '../../widgets/app_text_field.dart';
 
 class ChatScreen extends StatefulWidget {
   final String? sessionId;
@@ -29,6 +29,8 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
+  static const int _maxMessageLength = 1000;
+
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
@@ -134,6 +136,13 @@ class _ChatScreenState extends State<ChatScreen> {
 
     if (content.isEmpty) {
       _showSnackBar('Введите сообщение.');
+      return;
+    }
+
+    if (content.length > _maxMessageLength) {
+      _showSnackBar(
+        'Сообщение слишком длинное. Максимум $_maxMessageLength символов.',
+      );
       return;
     }
 
@@ -439,6 +448,7 @@ class _ChatScreenState extends State<ChatScreen> {
       isFinished: _isFinished,
       createdDiaryEntryId: _createdDiaryEntryId,
       sessionFinishedInThisScreen: _sessionFinishedInThisScreen,
+      maxMessageLength: _maxMessageLength,
       onSend: _sendMessage,
       onFinish: _finishSession,
       onOpenCreatedDiaryEntry: _openCreatedDiaryEntry,
@@ -458,6 +468,7 @@ class _ChatContent extends StatelessWidget {
   final bool isFinished;
   final int? createdDiaryEntryId;
   final bool sessionFinishedInThisScreen;
+  final int maxMessageLength;
   final VoidCallback onSend;
   final VoidCallback onFinish;
   final VoidCallback onOpenCreatedDiaryEntry;
@@ -474,6 +485,7 @@ class _ChatContent extends StatelessWidget {
     required this.isFinished,
     required this.createdDiaryEntryId,
     required this.sessionFinishedInThisScreen,
+    required this.maxMessageLength,
     required this.onSend,
     required this.onFinish,
     required this.onOpenCreatedDiaryEntry,
@@ -565,7 +577,6 @@ class _ChatContent extends StatelessWidget {
                         ),
                       ),
                     ),
-
                     if (isFinished && sessionFinishedInThisScreen)
                       Padding(
                         padding: const EdgeInsets.fromLTRB(
@@ -603,7 +614,6 @@ class _ChatContent extends StatelessWidget {
                           ),
                         ),
                       ),
-
                     Expanded(
                       child: messages.isEmpty
                           ? _EmptyChatState(
@@ -632,11 +642,11 @@ class _ChatContent extends StatelessWidget {
                               },
                             ),
                     ),
-
                     if (!isFinished)
                       _MessageInput(
                         controller: messageController,
                         isSending: isSending,
+                        maxLength: maxMessageLength,
                         onSend: onSend,
                       )
                     else
@@ -672,24 +682,32 @@ class _ChatContent extends StatelessWidget {
 class _MessageInput extends StatelessWidget {
   final TextEditingController controller;
   final bool isSending;
+  final int maxLength;
   final VoidCallback onSend;
 
   const _MessageInput({
     required this.controller,
     required this.isSending,
+    required this.maxLength,
     required this.onSend,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final inputBackground =
+        isDark ? AppColors.darkSurface : AppColors.lightSurface;
+
+    final inputBorder = isDark ? AppColors.darkBorder : AppColors.lightBorder;
 
     return Container(
       decoration: BoxDecoration(
         color: theme.scaffoldBackgroundColor,
         border: Border(
           top: BorderSide(
-            color: theme.dividerColor.withValues(alpha: 0.7),
+            color: isDark ? AppColors.darkBorder : AppColors.lightDivider,
           ),
         ),
       ),
@@ -703,17 +721,52 @@ class _MessageInput extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Expanded(
-            child: AppTextField(
-              controller: controller,
-              hint: 'Напишите ответ...',
-              maxLines: 4,
-              enabled: !isSending,
+            child: Container(
+              constraints: const BoxConstraints(
+                minHeight: 48,
+                maxHeight: 132,
+              ),
+              decoration: BoxDecoration(
+                color: inputBackground,
+                borderRadius: AppRadius.large,
+                border: Border.all(
+                  color: inputBorder,
+                  width: 1,
+                ),
+              ),
+              child: TextField(
+                controller: controller,
+                enabled: !isSending,
+                minLines: 1,
+                maxLines: 5,
+                maxLength: maxLength,
+                keyboardType: TextInputType.multiline,
+                textInputAction: TextInputAction.newline,
+                style: theme.textTheme.bodyMedium,
+                cursorColor: theme.colorScheme.primary,
+                decoration: InputDecoration(
+                  hintText: 'Напишите ответ...',
+                  hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  counterText: '',
+                  filled: false,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.lg,
+                    vertical: 13,
+                  ),
+                ),
+              ),
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
           SizedBox(
-            width: 50,
-            height: 50,
+            width: 48,
+            height: 48,
             child: FilledButton(
               onPressed: isSending ? null : onSend,
               style: FilledButton.styleFrom(
@@ -724,13 +777,16 @@ class _MessageInput extends StatelessWidget {
               ),
               child: isSending
                   ? const SizedBox(
-                      width: 20,
-                      height: 20,
+                      width: 19,
+                      height: 19,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                       ),
                     )
-                  : const Icon(Icons.send_rounded),
+                  : const Icon(
+                      Icons.arrow_upward_rounded,
+                      size: 22,
+                    ),
             ),
           ),
         ],
@@ -759,9 +815,8 @@ class _MessageBubble extends StatelessWidget {
         ? theme.colorScheme.primary
         : theme.cardTheme.color ?? theme.colorScheme.surface;
 
-    final textColor = isUser
-        ? theme.colorScheme.onPrimary
-        : theme.colorScheme.onSurface;
+    final textColor =
+        isUser ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface;
 
     final technique = message.usedTechnique;
 
@@ -796,7 +851,7 @@ class _MessageBubble extends StatelessWidget {
                 border: isUser
                     ? null
                     : Border.all(
-                        color: theme.dividerColor.withValues(alpha: 0.6),
+                        color: theme.dividerColor.withOpacity(0.6),
                       ),
               ),
               child: Text(
@@ -817,7 +872,7 @@ class _MessageBubble extends StatelessWidget {
                   vertical: 3,
                 ),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.10),
+                  color: theme.colorScheme.primary.withOpacity(0.10),
                   borderRadius: AppRadius.medium,
                 ),
                 child: Text(
@@ -860,7 +915,7 @@ class _AssistantLoadingBubble extends StatelessWidget {
             bottomRight: Radius.circular(AppRadius.lg),
           ),
           border: Border.all(
-            color: theme.dividerColor.withValues(alpha: 0.6),
+            color: theme.dividerColor.withOpacity(0.6),
           ),
         ),
         child: Row(

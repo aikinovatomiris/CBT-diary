@@ -44,15 +44,6 @@ class _HomeData {
     required this.sessions,
   });
 
-  // ============================================================
-  // LATEST ACTIVE SESSION
-  // ============================================================
-  // Важно:
-  // раньше возвращалась первая active-сессия из списка.
-  // Теперь возвращается последняя незавершенная active-сессия:
-  // - берем только status == active;
-  // - сортируем по createdAt по убыванию;
-  // - null createdAt считаем самой старой датой.
   CBTSessionModel? get activeSession {
     final activeSessions = sessions.where((session) {
       return session.status == 'active';
@@ -117,8 +108,6 @@ class _HomeData {
         return false;
       }
 
-      // NONE технически может часто встречаться, но для главной аналитики
-      // это бесполезно и визуально выглядит как шум.
       return technique.trim().toUpperCase() != 'NONE';
     }).toList();
 
@@ -237,9 +226,10 @@ class _HomeScreenState extends State<HomeScreen> {
   String _formatDate(DateTime? date) {
     if (date == null) return 'Нет данных';
 
-    final day = date.day.toString().padLeft(2, '0');
-    final month = date.month.toString().padLeft(2, '0');
-    final year = date.year.toString();
+    final localDate = date.toLocal();
+    final day = localDate.day.toString().padLeft(2, '0');
+    final month = localDate.month.toString().padLeft(2, '0');
+    final year = localDate.year.toString();
 
     return '$day.$month.$year';
   }
@@ -336,9 +326,6 @@ class _HomeContent extends StatelessWidget {
     final latestEntry = data.latestEntry;
 
     return Scaffold(
-      // AppBar оставлен максимально минимальным.
-      // Заголовок "Главная" убран, потому что теперь главный заголовок —
-      // это приветствие внутри экрана.
       appBar: AppBar(
         toolbarHeight: 0,
       ),
@@ -378,6 +365,12 @@ class _HomeContent extends StatelessWidget {
                         onTap: onCreateSession,
                       ),
 
+                      const SizedBox(height: AppSpacing.xl),
+
+                      _WeeklyDiaryActivity(
+                        entries: data.diaryEntries,
+                      ),
+
                       if (activeSession != null) ...[
                         const SizedBox(height: AppSpacing.xxl),
                         _ContinueSessionCard(
@@ -414,6 +407,193 @@ class _HomeContent extends StatelessWidget {
           },
         ),
       ),
+    );
+  }
+}
+
+class _WeeklyDiaryActivity extends StatelessWidget {
+  final List<DiaryEntryModel> entries;
+
+  const _WeeklyDiaryActivity({
+    required this.entries,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+
+    final monday = todayDate.subtract(
+      Duration(days: todayDate.weekday - DateTime.monday),
+    );
+
+    final weekDays = List.generate(7, (index) {
+      return monday.add(Duration(days: index));
+    });
+
+    final activeDates = entries
+        .where((entry) => entry.createdAt != null)
+        .map((entry) {
+          final localDate = entry.createdAt!.toLocal();
+          return DateTime(localDate.year, localDate.month, localDate.day);
+        })
+        .toList();
+
+    final cardBackground = isDark
+        ? AppColors.darkSurface
+        : AppColors.lightSurface;
+
+    final borderColor = isDark
+        ? AppColors.darkBorder
+        : AppColors.lightBorder;
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: cardBackground,
+        borderRadius: AppRadius.extraLarge,
+        border: Border.all(
+          color: borderColor,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: List.generate(weekDays.length, (index) {
+              final day = weekDays[index];
+              final hasEntry = activeDates.any((date) {
+                return _isSameDate(date, day);
+              });
+              final isToday = _isSameDate(day, todayDate);
+
+              return Expanded(
+                child: _WeekDayIndicator(
+                  label: _weekdayLabel(index),
+                  hasEntry: hasEntry,
+                  isToday: isToday,
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'Дни с записями в дневнике',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _weekdayLabel(int index) {
+    const labels = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+    return labels[index];
+  }
+}
+
+class _WeekDayIndicator extends StatelessWidget {
+  final String label;
+  final bool hasEntry;
+  final bool isToday;
+
+  const _WeekDayIndicator({
+    required this.label,
+    required this.hasEntry,
+    required this.isToday,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final primary = theme.colorScheme.primary;
+
+    final emptyBackground = isDark
+        ? AppColors.darkSurfaceSoft.withOpacity(0.52)
+        : AppColors.white.withOpacity(0.58);
+
+    final emptyBorder = isDark
+        ? AppColors.darkBorder
+        : AppColors.white.withOpacity(0.82);
+
+    final circleColor = hasEntry ? primary : emptyBackground;
+
+    final borderColor = isToday
+        ? primary
+        : hasEntry
+            ? primary.withOpacity(0.36)
+            : emptyBorder;
+
+    final textColor = hasEntry
+        ? AppColors.white
+        : isDark
+            ? AppColors.darkMutedText
+            : AppColors.lightMutedText;
+
+    final labelColor = isToday
+        ? primary
+        : theme.colorScheme.onSurfaceVariant;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: labelColor,
+            fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
+            letterSpacing: -0.1,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          width: isToday ? 36 : 32,
+          height: isToday ? 36 : 32,
+          decoration: BoxDecoration(
+            color: circleColor,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: borderColor,
+              width: isToday ? 1.8 : 1,
+            ),
+            boxShadow: hasEntry
+                ? [
+                    BoxShadow(
+                      color: primary.withOpacity(isDark ? 0.28 : 0.18),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Center(
+            child: hasEntry
+                ? Icon(
+                    Icons.check_rounded,
+                    size: isToday ? 18 : 16,
+                    color: textColor,
+                  )
+                : Container(
+                    width: isToday ? 5 : 4,
+                    height: isToday ? 5 : 4,
+                    decoration: BoxDecoration(
+                      color: textColor.withOpacity(isToday ? 0.9 : 0.45),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -832,4 +1012,8 @@ class _SoftIconBox extends StatelessWidget {
       ),
     );
   }
+}
+
+bool _isSameDate(DateTime a, DateTime b) {
+  return a.year == b.year && a.month == b.month && a.day == b.day;
 }

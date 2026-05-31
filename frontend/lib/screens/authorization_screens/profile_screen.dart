@@ -121,9 +121,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               : 'Не удалось загрузить профиль.';
 
           return Scaffold(
-            appBar: AppBar(
-              title: const Text('Профиль'),
-            ),
             body: AppErrorView(
               message: message,
               onRetry: _refresh,
@@ -135,9 +132,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         if (user == null) {
           return Scaffold(
-            appBar: AppBar(
-              title: const Text('Профиль'),
-            ),
             body: AppErrorView(
               message: 'Нет данных пользователя.',
               onRetry: _refresh,
