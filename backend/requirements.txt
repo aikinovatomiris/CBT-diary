@@ -10,3 +10,5 @@ python-jose[cryptography]
 google-genai
 openai
 python-multipart
+google-auth
+requests

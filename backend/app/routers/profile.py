@@ -44,6 +44,12 @@ def change_password(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if current_user.auth_provider == "google":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Для аккаунта, созданного через Google, пароль в приложении не используется",
+        )
+
     is_old_password_correct = verify_password(
         plain_password=password_data.old_password,
         hashed_password=current_user.hashed_password,

@@ -26,6 +26,7 @@ class User(Base):
     name = Column(String, nullable=False)
 
     role = Column(String, default="user", nullable=False)
+    auth_provider = Column(String, default="local", nullable=False)
 
     assistant_style = Column(String, default="supportive", nullable=True)
 

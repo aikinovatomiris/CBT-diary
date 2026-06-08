@@ -180,9 +180,6 @@ class _ProfileContent extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Профиль'),
-      ),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -255,15 +252,15 @@ class _ProfileContent extends StatelessWidget {
                               onTap: onAssistantSettings,
                             ),
                             const Divider(),
-
-                            _ProfileActionTile(
-                              icon: Icons.lock_outline_rounded,
-                              title: 'Сменить пароль',
-                              subtitle: 'Обновить пароль аккаунта',
-                              onTap: onChangePassword,
-                            ),
-                            const Divider(),
-
+                            if (user.canChangePassword) ...[
+                              _ProfileActionTile(
+                                icon: Icons.lock_outline_rounded,
+                                title: 'Сменить пароль',
+                                subtitle: 'Обновить пароль аккаунта',
+                                onTap: onChangePassword,
+                              ),
+                              const Divider(),
+                            ],
                             ValueListenableBuilder<ThemeMode>(
                               valueListenable: ThemeController.themeMode,
                               // ignore: unnecessary_underscores

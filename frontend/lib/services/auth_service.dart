@@ -58,8 +58,9 @@ class AuthService {
       );
 
       final data = _safeMap(response.data);
+      final userData = _safeMap(data['user']);
 
-      return UserModel.fromJson(data);
+      return UserModel.fromJson(userData);
     } on ApiException {
       rethrow;
     } catch (_) {
@@ -93,6 +94,7 @@ class AuthService {
         );
       }
 
+      _cachedUser = null;
       await TokenStorage.saveToken(token);
 
       return tokenModel;
@@ -101,6 +103,49 @@ class AuthService {
     } catch (_) {
       throw const ApiException(
         message: 'Не удалось войти. Проверьте email и пароль.',
+      );
+    }
+  }
+
+  static Future<TokenModel> loginWithGoogleIdToken({
+    required String idToken,
+  }) async {
+    try {
+      final cleanIdToken = idToken.trim();
+
+      if (cleanIdToken.isEmpty) {
+        throw const ApiException(
+          message: 'Google не вернул токен авторизации.',
+        );
+      }
+
+      final response = await ApiClient.post(
+        '/auth/google',
+        data: {
+          'id_token': cleanIdToken,
+        },
+      );
+
+      final data = _safeMap(response.data);
+      final tokenModel = TokenModel.fromJson(data);
+
+      final token = tokenModel.accessToken;
+
+      if (token == null || token.trim().isEmpty) {
+        throw const ApiException(
+          message: 'Сервер не вернул токен авторизации.',
+        );
+      }
+
+      _cachedUser = null;
+      await TokenStorage.saveToken(token);
+
+      return tokenModel;
+    } on ApiException {
+      rethrow;
+    } catch (_) {
+      throw const ApiException(
+        message: 'Не удалось войти через Google.',
       );
     }
   }

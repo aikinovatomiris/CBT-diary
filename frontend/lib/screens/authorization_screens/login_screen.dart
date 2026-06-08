@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../navigation/app_routes.dart';
 import '../../services/api_exception.dart';
 import '../../services/auth_service.dart';
+import '../../services/google_auth_service.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/role_helper.dart';
 import '../../widgets/app_button.dart';
@@ -22,11 +23,14 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
 
   bool _isLoading = false;
+  bool _isGoogleLoading = false;
   bool _obscurePassword = true;
 
   String? _emailError;
   String? _passwordError;
   String? _generalError;
+
+  bool get _isAnyLoading => _isLoading || _isGoogleLoading;
 
   @override
   void dispose() {
@@ -65,6 +69,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
+    if (_isAnyLoading) return;
     if (!_validate()) return;
 
     setState(() {
@@ -102,8 +107,84 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _loginWithGoogle() async {
+    if (_isAnyLoading) return;
+
+    setState(() {
+      _isGoogleLoading = true;
+      _generalError = null;
+      _emailError = null;
+      _passwordError = null;
+    });
+
+    try {
+      final idToken = await GoogleAuthService.getGoogleIdToken();
+
+      await AuthService.loginWithGoogleIdToken(
+        idToken: idToken,
+      );
+
+      final user = await AuthService.me(forceRefresh: true);
+
+      if (!mounted) return;
+
+      context.go(
+        RoleHelper.startRouteForRole(user.role),
+      );
+    } on ApiException catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        _generalError = error.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _generalError = 'Не удалось войти через Google. Попробуйте ещё раз.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGoogleLoading = false;
+        });
+      }
+    }
+  }
+
   void _goToRegister() {
+    if (_isAnyLoading) return;
     context.go(AppRoutes.register);
+  }
+
+  Widget _buildDivider(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      children: [
+        Expanded(
+          child: Divider(
+            color: theme.colorScheme.outlineVariant,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+          ),
+          child: Text(
+            'или',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Divider(
+            color: theme.colorScheme.outlineVariant,
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -186,6 +267,16 @@ class _LoginScreenState extends State<LoginScreen> {
                               text: 'Войти',
                               isLoading: _isLoading,
                               onPressed: _login,
+                            ),
+                            const SizedBox(height: AppSpacing.lg),
+                            _buildDivider(context),
+                            const SizedBox(height: AppSpacing.lg),
+                            AppButton(
+                              text: 'Войти через Google',
+                              icon: Icons.g_mobiledata_rounded,
+                              variant: AppButtonVariant.ghost,
+                              isLoading: _isGoogleLoading,
+                              onPressed: _loginWithGoogle,
                             ),
                           ],
                         ),

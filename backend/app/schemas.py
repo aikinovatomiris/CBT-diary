@@ -38,6 +38,10 @@ class UserCreate(BaseModel):
 class UserLogin(BaseModel):
     email: EmailStr
     password: str = Field(min_length=6, max_length=72)
+    
+    
+class GoogleLoginRequest(BaseModel):
+    id_token: str = Field(min_length=10)
 
 
 class TherapistRegisterRequest(BaseModel):
@@ -56,6 +60,7 @@ class UserResponse(BaseModel):
     name: str
     role: str
     assistant_style: Optional[str] = None
+    auth_provider: str = "local"
     created_at: datetime
 
 

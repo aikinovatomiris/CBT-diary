@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 import '../../navigation/app_routes.dart';
 import '../../services/api_exception.dart';
 import '../../services/auth_service.dart';
+import '../../services/google_auth_service.dart';
 import '../../theme/app_spacing.dart';
+import '../../utils/role_helper.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/app_text_field.dart';
@@ -22,12 +24,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _passwordController = TextEditingController();
 
   bool _isLoading = false;
+  bool _isGoogleLoading = false;
   bool _obscurePassword = true;
 
   String? _nameError;
   String? _emailError;
   String? _passwordError;
   String? _generalError;
+
+  bool get _isAnyLoading => _isLoading || _isGoogleLoading;
 
   @override
   void dispose() {
@@ -74,6 +79,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _register() async {
+    if (_isAnyLoading) return;
     if (!_validate()) return;
 
     setState(() {
@@ -114,12 +120,91 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  Future<void> _registerWithGoogle() async {
+    if (_isAnyLoading) return;
+
+    setState(() {
+      _isGoogleLoading = true;
+      _generalError = null;
+      _nameError = null;
+      _emailError = null;
+      _passwordError = null;
+    });
+
+    try {
+      final idToken = await GoogleAuthService.getGoogleIdToken();
+
+      await AuthService.loginWithGoogleIdToken(
+        idToken: idToken,
+      );
+
+      final user = await AuthService.me(forceRefresh: true);
+
+      if (!mounted) return;
+
+      context.go(
+        RoleHelper.startRouteForRole(user.role),
+      );
+    } on ApiException catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        _generalError = error.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _generalError =
+            'Не удалось создать аккаунт через Google. Попробуйте ещё раз.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGoogleLoading = false;
+        });
+      }
+    }
+  }
+
   void _goToLogin() {
+    if (_isAnyLoading) return;
     context.go(AppRoutes.login);
   }
 
   void _goToTherapistRegister() {
+    if (_isAnyLoading) return;
     context.push(AppRoutes.registerTherapist);
+  }
+
+  Widget _buildDivider(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      children: [
+        Expanded(
+          child: Divider(
+            color: theme.colorScheme.outlineVariant,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+          ),
+          child: Text(
+            'или',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Divider(
+            color: theme.colorScheme.outlineVariant,
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -211,6 +296,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               text: 'Зарегистрироваться',
                               isLoading: _isLoading,
                               onPressed: _register,
+                            ),
+                            const SizedBox(height: AppSpacing.lg),
+                            _buildDivider(context),
+                            const SizedBox(height: AppSpacing.lg),
+                            AppButton(
+                              text: 'Продолжить через Google',
+                              icon: Icons.g_mobiledata_rounded,
+                              variant: AppButtonVariant.ghost,
+                              isLoading: _isGoogleLoading,
+                              onPressed: _registerWithGoogle,
                             ),
                           ],
                         ),

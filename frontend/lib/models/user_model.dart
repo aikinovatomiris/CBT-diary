@@ -5,19 +5,9 @@ class UserModel {
   final String? email;
   final String? name;
   final DateTime? createdAt;
-
-  /// backend field: assistant_style
   final String? assistantStyle;
-
-  /// backend field: role
-  ///
-  /// Возможные значения:
-  /// - user
-  /// - therapist
-  /// - admin
-  ///
-  /// Если backend не вернул role, считаем user.
   final String role;
+  final String authProvider;
 
   const UserModel({
     this.id,
@@ -26,7 +16,12 @@ class UserModel {
     this.createdAt,
     this.assistantStyle,
     this.role = 'user',
+    this.authProvider = 'local',
   });
+
+  bool get isGoogleAccount => authProvider == 'google';
+
+  bool get canChangePassword => authProvider == 'local';
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
@@ -36,6 +31,7 @@ class UserModel {
       createdAt: JsonHelpers.parseDateTime(json['created_at']),
       assistantStyle: JsonHelpers.parseString(json['assistant_style']),
       role: _parseRole(json['role']),
+      authProvider: _parseAuthProvider(json['auth_provider']),
     );
   }
 
@@ -47,6 +43,7 @@ class UserModel {
       'created_at': createdAt?.toIso8601String(),
       'assistant_style': assistantStyle,
       'role': role,
+      'auth_provider': authProvider,
     };
   }
 
@@ -57,5 +54,13 @@ class UserModel {
     if (role == 'admin') return 'admin';
 
     return 'user';
+  }
+
+  static String _parseAuthProvider(dynamic value) {
+    final provider = JsonHelpers.parseString(value)?.trim().toLowerCase();
+
+    if (provider == 'google') return 'google';
+
+    return 'local';
   }
 }
