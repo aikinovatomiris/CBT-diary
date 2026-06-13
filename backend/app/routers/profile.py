@@ -10,6 +10,7 @@ from app.schemas import (
     UserResponse,
 )
 from app.security import get_current_user, hash_password, verify_password
+from app.schemas import UpdateUserNameRequest, UserResponse
 
 
 router = APIRouter(
@@ -70,3 +71,27 @@ def change_password(
     return {
         "message": "Пароль успешно изменен"
     }
+    
+@router.patch(
+    "/name",
+    response_model=UserResponse,
+)
+def update_user_name(
+    name_data: UpdateUserNameRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    new_name = name_data.name.strip()
+
+    if not new_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Имя не может быть пустым",
+        )
+
+    current_user.name = new_name
+
+    db.commit()
+    db.refresh(current_user)
+
+    return current_user

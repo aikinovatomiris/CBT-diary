@@ -86,6 +86,8 @@ class ChangePasswordRequest(BaseModel):
 class ChangePasswordResponse(BaseModel):
     message: str
 
+class UpdateUserNameRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
 
 # =========================
 # Therapist profile schemas

@@ -31,6 +31,38 @@ class ProfileService {
   }
 
   // ============================================================
+  // PATCH /profile/name
+  // ============================================================
+
+  static Future<UserModel> updateName(String name) async {
+    try {
+      final cleanName = name.trim();
+
+      if (cleanName.isEmpty) {
+        throw const ApiException(
+          message: 'Имя не может быть пустым.',
+        );
+      }
+
+      final response = await ApiClient.patch(
+        '/profile/name',
+        data: {
+          'name': cleanName,
+        },
+      );
+
+      final data = _safeMap(response.data);
+      return UserModel.fromJson(data);
+    } on ApiException {
+      rethrow;
+    } catch (_) {
+      throw const ApiException(
+        message: 'Не удалось изменить имя.',
+      );
+    }
+  }
+
+  // ============================================================
   // PATCH /profile/change-password
   // ============================================================
 

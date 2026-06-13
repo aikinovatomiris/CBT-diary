@@ -5,6 +5,7 @@ import '../../models/user_model.dart';
 import '../../navigation/app_routes.dart';
 import '../../services/api_exception.dart';
 import '../../services/auth_service.dart';
+import '../../services/profile_service.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/theme_controller.dart';
 import '../../widgets/app_button.dart';
@@ -30,7 +31,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _refresh() async {
     setState(() {
-      _userFuture = AuthService.me();
+      _userFuture = AuthService.me(forceRefresh: true);
     });
 
     await _userFuture;
@@ -54,6 +55,111 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _openChangePassword() {
     context.push(AppRoutes.changePassword);
+  }
+
+  Future<void> _openChangeNameDialog(String currentName) async {
+    final controller = TextEditingController(text: currentName.trim());
+
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        String? localError;
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Изменить имя'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: controller,
+                    autofocus: true,
+                    textInputAction: TextInputAction.done,
+                    decoration: InputDecoration(
+                      labelText: 'Имя',
+                      hintText: 'Как к тебе обращаться?',
+                      errorText: localError,
+                    ),
+                    onSubmitted: (_) {
+                      final value = controller.text.trim();
+
+                      if (value.isEmpty) {
+                        setDialogState(() {
+                          localError = 'Имя не может быть пустым';
+                        });
+                        return;
+                      }
+
+                      Navigator.pop(dialogContext, value);
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Отмена'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    final value = controller.text.trim();
+
+                    if (value.isEmpty) {
+                      setDialogState(() {
+                        localError = 'Имя не может быть пустым';
+                      });
+                      return;
+                    }
+
+                    Navigator.pop(dialogContext, value);
+                  },
+                  child: const Text('Сохранить'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    controller.dispose();
+
+    if (newName == null || newName.trim().isEmpty) return;
+
+    try {
+      final updatedUser = await ProfileService.updateName(newName);
+
+      await AuthService.me(forceRefresh: true);
+
+      if (!mounted) return;
+
+      setState(() {
+        _userFuture = Future.value(updatedUser);
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Имя успешно изменено.'),
+        ),
+      );
+    } on ApiException catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Не удалось изменить имя.'),
+        ),
+      );
+    }
   }
 
   void _showDisclaimer() {
@@ -143,6 +249,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           user: user,
           styleTitle: _styleTitle,
           safeText: _safeText,
+          onChangeName: () => _openChangeNameDialog(user.name ?? ''),
           onAssistantSettings: _openAssistantSettings,
           onChangePassword: _openChangePassword,
           onDisclaimer: _showDisclaimer,
@@ -158,6 +265,7 @@ class _ProfileContent extends StatelessWidget {
   final UserModel user;
   final String Function(String?) styleTitle;
   final String Function(String?, {String fallback}) safeText;
+  final VoidCallback onChangeName;
   final VoidCallback onAssistantSettings;
   final VoidCallback onChangePassword;
   final VoidCallback onDisclaimer;
@@ -168,6 +276,7 @@ class _ProfileContent extends StatelessWidget {
     required this.user,
     required this.styleTitle,
     required this.safeText,
+    required this.onChangeName,
     required this.onAssistantSettings,
     required this.onChangePassword,
     required this.onDisclaimer,
@@ -211,9 +320,7 @@ class _ProfileContent extends StatelessWidget {
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
-
                       const SizedBox(height: AppSpacing.xl),
-
                       AppCard(
                         hasShadow: false,
                         child: Column(
@@ -238,13 +345,18 @@ class _ProfileContent extends StatelessWidget {
                           ],
                         ),
                       ),
-
                       const SizedBox(height: AppSpacing.lg),
-
                       AppCard(
                         hasShadow: false,
                         child: Column(
                           children: [
+                            _ProfileActionTile(
+                              icon: Icons.edit_outlined,
+                              title: 'Изменить имя',
+                              subtitle: 'Обновить имя для профиля и приветствия',
+                              onTap: onChangeName,
+                            ),
+                            const Divider(),
                             _ProfileActionTile(
                               icon: Icons.smart_toy_outlined,
                               title: 'Настройки ассистента',
@@ -281,7 +393,6 @@ class _ProfileContent extends StatelessWidget {
                               },
                             ),
                             const Divider(),
-
                             _ProfileActionTile(
                               icon: Icons.info_outline_rounded,
                               title: 'Дисклеймер',
@@ -291,9 +402,7 @@ class _ProfileContent extends StatelessWidget {
                           ],
                         ),
                       ),
-
                       const SizedBox(height: AppSpacing.lg),
-
                       AppButton(
                         text: 'Выйти',
                         icon: Icons.logout_rounded,
