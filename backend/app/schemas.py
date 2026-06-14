@@ -325,6 +325,21 @@ class CBTMessageSendResponse(BaseModel):
 # Diary schemas
 # =========================
 
+class DiaryEntryUpdate(BaseModel):
+    situation: Optional[str] = None
+    automatic_thought: Optional[str] = None
+
+    emotions_before: Optional[Any] = None
+    emotions_after: Optional[Any] = None
+    cognitive_distortions: Optional[Any] = None
+
+    evidence_for: Optional[str] = None
+    evidence_against: Optional[str] = None
+    alternative_thought: Optional[str] = None
+    conclusion: Optional[str] = None
+
+
+
 class DiaryEntryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

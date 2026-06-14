@@ -188,7 +188,7 @@ class _DiaryListScreenState extends State<DiaryListScreen> {
     });
   }
 
-  void _openEntry(DiaryEntryModel entry) {
+  Future<void> _openEntry(DiaryEntryModel entry) async {
     final id = entry.id;
 
     if (id == null) {
@@ -200,7 +200,13 @@ class _DiaryListScreenState extends State<DiaryListScreen> {
       return;
     }
 
-    context.push('/diary/$id');
+    await context.push('/diary/$id');
+
+    if (!mounted) {
+      return;
+    }
+
+    await _refresh();
   }
 
   String _formatDate(DateTime? date) {

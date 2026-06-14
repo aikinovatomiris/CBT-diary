@@ -60,6 +60,34 @@ class DiaryService {
   }
 
   // ============================================================
+  // PATCH /diary/{entry_id}
+  // ============================================================
+
+  static Future<DiaryEntryModel> updateEntry(
+    int id,
+    Map<String, dynamic> fields,
+  ) async {
+    try {
+      final response = await ApiClient.dio.patch(
+        '/diary/$id',
+        data: fields,
+      );
+
+      final data = _safeMap(response.data);
+
+      return DiaryEntryModel.fromJson(data);
+    } on DioException catch (error) {
+      throw ApiException.fromDioException(error);
+    } on ApiException {
+      rethrow;
+    } catch (_) {
+      throw const ApiException(
+        message: 'Не удалось сохранить изменения дневниковой записи.',
+      );
+    }
+  }
+
+  // ============================================================
   // DELETE /diary/{entry_id}
   // ============================================================
 

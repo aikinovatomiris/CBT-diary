@@ -2,11 +2,16 @@ from typing import Any, List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import PlainTextResponse
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import DiaryEntry, User
-from app.schemas import DeleteDiaryEntryResponse, DiaryEntryResponse
+from app.schemas import (
+    DeleteDiaryEntryResponse,
+    DiaryEntryResponse,
+    DiaryEntryUpdate,
+)
 from app.security import get_current_user
 
 
@@ -28,6 +33,7 @@ def format_json_field(value: Any) -> str:
     - {"items": [...]}
     - обычный dict
     - обычный list
+    - обычную строку
     """
 
     if value is None:
@@ -173,6 +179,33 @@ def build_diary_export_text(entry: DiaryEntry) -> str:
 """
 
 
+def normalize_editable_json_field(value: Any) -> Any:
+    """
+    Подготавливает значение для сохранения в JSON-колонку PostgreSQL.
+
+    Если frontend отправляет текст из TextField, он сохраняется в формате:
+
+        {"raw_text": "текст пользователя"}
+
+    Такой формат уже поддерживается функцией format_json_field().
+
+    Если frontend отправляет существующий dict или list без изменений,
+    структура сохраняется как есть.
+
+    None очищает JSON-поле.
+    """
+
+    if value is None:
+        return None
+
+    if isinstance(value, str):
+        return {
+            "raw_text": value,
+        }
+
+    return value
+
+
 def get_user_diary_entry_or_404(
     entry_id: int,
     db: Session,
@@ -251,6 +284,86 @@ def get_diary_entry_by_id(
         db=db,
         current_user=current_user,
     )
+
+    return entry
+
+
+@router.patch(
+    "/{entry_id}",
+    response_model=DiaryEntryResponse,
+)
+def update_diary_entry(
+    entry_id: int,
+    update_data: DiaryEntryUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Редактирует существующую запись КПТ-дневника.
+
+    Пользователь может изменить только свою запись.
+
+    Поля id, user_id, session_id и created_at изменить нельзя.
+
+    Переданные поля перезаписывают данные в PostgreSQL.
+    Поля, которые frontend не передал, остаются без изменений.
+    """
+
+    entry = get_user_diary_entry_or_404(
+        entry_id=entry_id,
+        db=db,
+        current_user=current_user,
+    )
+
+    fields_to_update = update_data.model_dump(
+        exclude_unset=True,
+    )
+
+    if "situation" in fields_to_update and fields_to_update["situation"] is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Поле situation не может быть null. Для очистки передайте пустую строку.",
+        )
+
+    if (
+        "automatic_thought" in fields_to_update
+        and fields_to_update["automatic_thought"] is None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Поле automatic_thought не может быть null. "
+                "Для очистки передайте пустую строку."
+            ),
+        )
+
+    json_fields = {
+        "emotions_before",
+        "emotions_after",
+        "cognitive_distortions",
+    }
+
+    for field_name, field_value in fields_to_update.items():
+        if field_name in json_fields:
+            field_value = normalize_editable_json_field(field_value)
+
+        setattr(
+            entry,
+            field_name,
+            field_value,
+        )
+
+    try:
+        db.commit()
+        db.refresh(entry)
+
+    except SQLAlchemyError:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Не удалось сохранить изменения записи дневника",
+        )
 
     return entry
 

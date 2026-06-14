@@ -11,6 +11,7 @@ import '../screens/user_screens/chat_screen.dart';
 import '../screens/conversation_screens/conversation_detail_screen.dart';
 import '../screens/conversation_screens/conversations_list_screen.dart';
 import '../screens/user_screens/diary_detail_screen.dart';
+import '../screens/user_screens/diary_edit_screen.dart';
 import '../screens/user_screens/diary_list_screen.dart';
 import '../screens/user_screens/export_preview_screen.dart';
 import '../screens/user_screens/home_screen.dart';
@@ -143,6 +144,18 @@ final GoRouter appRouter = GoRouter(
 
         return ChatScreen(
           sessionId: sessionId,
+        );
+      },
+    ),
+    GoRoute(
+      path: AppRoutes.diaryEdit,
+      builder: (context, state) {
+        final id = state.pathParameters['id'];
+        final entry = state.extra;
+
+        return DiaryEditScreen(
+          entryId: id,
+          initialEntry: entry is DiaryEntryModel ? entry : null,
         );
       },
     ),

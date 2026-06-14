@@ -13,6 +13,7 @@ class AppRoutes {
   static const String chat = '/chat';
   static const String diary = '/diary';
   static const String diaryDetail = '/diary/:id';
+  static const String diaryEdit = '/diary/:id/edit';
   static const String analytics = '/analytics';
   static const String practices = '/practices';
   static const String practiceDetail = '/practices/:id';

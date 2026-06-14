@@ -64,6 +64,28 @@ class _DiaryDetailScreenState extends State<DiaryDetailScreen> {
     await _entryFuture;
   }
 
+  Future<void> _openEditScreen(DiaryEntryModel entry) async {
+    final id = entry.id;
+
+    if (id == null) {
+      _showSnackBar('У записи нет ID.');
+      return;
+    }
+
+    final updatedEntry = await context.push<DiaryEntryModel>(
+      '/diary/$id/edit',
+      extra: entry,
+    );
+
+    if (!mounted || updatedEntry == null) {
+      return;
+    }
+
+    setState(() {
+      _entryFuture = Future.value(updatedEntry);
+    });
+  }
+
   Future<void> _exportEntry() async {
     final id = _entryId;
 
@@ -392,6 +414,7 @@ class _DiaryDetailScreenState extends State<DiaryDetailScreen> {
           entry: entry,
           isExporting: _isExporting,
           isDeleting: _isDeleting,
+          onEdit: () => _openEditScreen(entry),
           onExport: _exportEntry,
           onDelete: _deleteEntry,
           onShare: _openShareBottomSheet,
@@ -408,6 +431,7 @@ class _DiaryDetailContent extends StatelessWidget {
   final DiaryEntryModel entry;
   final bool isExporting;
   final bool isDeleting;
+  final VoidCallback onEdit;
   final VoidCallback onExport;
   final VoidCallback onDelete;
   final VoidCallback onShare;
@@ -419,6 +443,7 @@ class _DiaryDetailContent extends StatelessWidget {
     required this.entry,
     required this.isExporting,
     required this.isDeleting,
+    required this.onEdit,
     required this.onExport,
     required this.onDelete,
     required this.onShare,
@@ -434,6 +459,16 @@ class _DiaryDetailContent extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Запись'),
+        actions: [
+          IconButton(
+            tooltip: 'Редактировать запись',
+            onPressed: isExporting || isDeleting ? null : onEdit,
+            icon: const Icon(
+              Icons.edit_outlined,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+        ],
       ),
       body: SafeArea(
         child: LayoutBuilder(
