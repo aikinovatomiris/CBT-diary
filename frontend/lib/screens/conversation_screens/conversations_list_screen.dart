@@ -14,38 +14,49 @@ import '../../widgets/app_error_view.dart';
 import '../../widgets/app_loading.dart';
 
 class ConversationsListScreen extends StatefulWidget {
-  const ConversationsListScreen({super.key});
+  const ConversationsListScreen({
+    super.key,
+  });
 
   @override
   State<ConversationsListScreen> createState() =>
       _ConversationsListScreenState();
 }
 
-class _ConversationsListScreenState extends State<ConversationsListScreen> {
+class _ConversationsListScreenState
+    extends State<ConversationsListScreen> {
   late Future<_ConversationsData> _future;
 
   @override
   void initState() {
     super.initState();
+
     _future = _loadData();
   }
 
   Future<_ConversationsData> _loadData() async {
     final user = await AuthService.me();
-    final conversations = await ConversationService.getConversations();
+    final conversations =
+        await ConversationService.getConversations();
 
     final therapistNamesByUserId = <int, String>{};
 
     if (user.role == 'user') {
-      final therapists = await TherapistService.getApprovedTherapists();
+      final therapists =
+          await TherapistService.getApprovedTherapists();
 
       for (final therapist in therapists) {
         final userId = therapist.userId;
         final fullName = therapist.fullName;
 
-        if (userId != null && fullName != null && fullName.trim().isNotEmpty) {
-          therapistNamesByUserId[userId] = fullName.trim();
+        if (userId == null ||
+            fullName == null ||
+            fullName.trim().isEmpty) {
+          continue;
         }
+
+        therapistNamesByUserId[userId] =
+            fullName.trim();
       }
     }
 
@@ -64,23 +75,37 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
     await _future;
   }
 
-  void _openConversation(ConversationModel conversation) {
+  Future<void> _openConversation(
+    ConversationModel conversation,
+  ) async {
     final id = conversation.id;
 
     if (id == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('У переписки нет ID.'),
-        ),
-      );
+      _showSnackBar('У переписки нет ID.');
       return;
     }
 
-    context.push('/conversations/$id').then((_) {
-      if (mounted) {
-        _refresh();
-      }
-    });
+    await context.push(
+      '/conversations/$id',
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    await _refresh();
+  }
+
+  void _showSnackBar(String message) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+      ),
+    );
   }
 
   @override
@@ -88,7 +113,8 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
     return FutureBuilder<_ConversationsData>(
       future: _future,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState ==
+            ConnectionState.waiting) {
           return const Scaffold(
             body: AppLoading(
               text: 'Загрузка переписок...',
@@ -98,6 +124,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
 
         if (snapshot.hasError) {
           final error = snapshot.error;
+
           final message = error is ApiException
               ? error.message
               : 'Не удалось загрузить переписки.';
@@ -130,7 +157,8 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
         return _ConversationsListContent(
           currentUser: data.currentUser,
           conversations: data.conversations,
-          therapistNamesByUserId: data.therapistNamesByUserId,
+          therapistNamesByUserId:
+              data.therapistNamesByUserId,
           onRefresh: _refresh,
           onOpenConversation: _openConversation,
         );
@@ -183,11 +211,14 @@ class _ConversationsListContent extends StatelessWidget {
             return Center(
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxWidth: isWide ? 720 : double.infinity,
+                  maxWidth:
+                      isWide ? 720 : double.infinity,
                 ),
                 child: RefreshIndicator(
                   onRefresh: onRefresh,
                   child: ListView(
+                    physics:
+                        const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.fromLTRB(
                       AppSpacing.xl,
                       AppSpacing.xl,
@@ -197,16 +228,23 @@ class _ConversationsListContent extends StatelessWidget {
                     children: [
                       Text(
                         'Переписки',
-                        style: theme.textTheme.headlineMedium,
+                        style:
+                            theme.textTheme.headlineMedium,
                       ),
-                      const SizedBox(height: AppSpacing.sm),
+                      const SizedBox(
+                        height: AppSpacing.sm,
+                      ),
                       Text(
                         'Переписка в приложении не заменяет консультацию и предназначена для первичной связи.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                        style:
+                            theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme
+                              .onSurfaceVariant,
                         ),
                       ),
-                      const SizedBox(height: AppSpacing.xl),
+                      const SizedBox(
+                        height: AppSpacing.xl,
+                      ),
                       if (conversations.isEmpty)
                         AppCard(
                           hasShadow: false,
@@ -214,8 +252,10 @@ class _ConversationsListContent extends StatelessWidget {
                             role == 'therapist'
                                 ? 'Пока нет диалогов с пользователями.'
                                 : 'Пока нет диалогов со специалистами.',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
+                            style: theme.textTheme.bodyMedium
+                                ?.copyWith(
+                              color: theme.colorScheme
+                                  .onSurfaceVariant,
                             ),
                           ),
                         )
@@ -223,16 +263,21 @@ class _ConversationsListContent extends StatelessWidget {
                         ...conversations.map(
                           (conversation) {
                             return Padding(
-                              padding: const EdgeInsets.only(
-                                bottom: AppSpacing.lg,
+                              padding:
+                                  const EdgeInsets.only(
+                                bottom: AppSpacing.md,
                               ),
                               child: _ConversationCard(
-                                conversation: conversation,
-                                currentUser: currentUser,
+                                conversation:
+                                    conversation,
+                                currentUser:
+                                    currentUser,
                                 therapistNamesByUserId:
                                     therapistNamesByUserId,
                                 onTap: () =>
-                                    onOpenConversation(conversation),
+                                    onOpenConversation(
+                                  conversation,
+                                ),
                               ),
                             );
                           },
@@ -267,102 +312,213 @@ class _ConversationCard extends StatelessWidget {
     final theme = Theme.of(context);
 
     final title = _conversationTitle();
-    final hasUnread = conversation.unreadCount > 0;
-    final lastMessage = conversation.lastMessage?.trim();
+
+    final hasUnread =
+        conversation.hasUnread ||
+        conversation.unreadCount > 0;
+
+    final lastMessage =
+        conversation.lastMessageText?.trim();
+
+    final lastActivityAt =
+        conversation.lastMessageAt ??
+        conversation.createdAt;
+
+    final isOwnLastMessage =
+        conversation.lastMessageSenderId != null &&
+        conversation.lastMessageSenderId ==
+            currentUser.id;
 
     return AppCard(
       hasShadow: false,
       onTap: onTap,
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withValues(alpha: 0.10),
-              borderRadius: AppRadius.large,
-            ),
-            child: Icon(
-              Icons.chat_bubble_outline_rounded,
-              color: theme.colorScheme.primary,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary
+                      .withValues(alpha: 0.10),
+                  borderRadius: AppRadius.large,
+                ),
+                child: Icon(
+                  Icons.chat_bubble_outline_rounded,
+                  color: theme.colorScheme.primary,
+                  size: 23,
+                ),
+              ),
+              if (hasUnread)
+                Positioned(
+                  right: -1,
+                  top: -1,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color:
+                            theme.scaffoldBackgroundColor,
+                        width: 2,
+                      ),
+                    ),
                   ),
                 ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  lastMessage != null && lastMessage.isNotEmpty
-                      ? lastMessage
-                      : 'Открыть переписку',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+            ],
+          ),
+          const SizedBox(
+            width: AppSpacing.md,
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow:
+                            TextOverflow.ellipsis,
+                        style: theme
+                            .textTheme.bodyMedium
+                            ?.copyWith(
+                          fontWeight: hasUnread
+                              ? FontWeight.w800
+                              : FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(
+                      width: AppSpacing.sm,
+                    ),
+                    Text(
+                      _formatConversationDate(
+                        lastActivityAt,
+                      ),
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(
+                        color: hasUnread
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme
+                                .onSurfaceVariant,
+                        fontWeight: hasUnread
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(
+                  height: AppSpacing.xs,
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _buildLastMessageText(
+                          lastMessage: lastMessage,
+                          isOwnLastMessage:
+                              isOwnLastMessage,
+                        ),
+                        maxLines: 1,
+                        overflow:
+                            TextOverflow.ellipsis,
+                        style: theme
+                            .textTheme.bodySmall
+                            ?.copyWith(
+                          color: hasUnread
+                              ? theme.colorScheme
+                                  .onSurface
+                              : theme.colorScheme
+                                  .onSurfaceVariant,
+                          fontWeight: hasUnread
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                        ),
+                      ),
+                    ),
+                    if (hasUnread) ...[
+                      const SizedBox(
+                        width: AppSpacing.sm,
+                      ),
+                      _UnreadBadge(
+                        count:
+                            conversation.unreadCount,
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
           ),
-          if (hasUnread) ...[
-            const SizedBox(width: AppSpacing.sm),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.sm,
-                vertical: 4,
-              ),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary,
-                borderRadius: AppRadius.medium,
-              ),
-              child: Text(
-                conversation.unreadCount.toString(),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onPrimary,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ],
-          const SizedBox(width: AppSpacing.sm),
+          const SizedBox(
+            width: AppSpacing.sm,
+          ),
           Icon(
             Icons.chevron_right_rounded,
-            color: theme.colorScheme.onSurfaceVariant,
+            color:
+                theme.colorScheme.onSurfaceVariant,
+            size: 23,
           ),
         ],
       ),
     );
   }
 
-  String _conversationTitle() {
-    final explicitName = conversation.interlocutorName;
+  String _buildLastMessageText({
+    required String? lastMessage,
+    required bool isOwnLastMessage,
+  }) {
+    if (lastMessage == null ||
+        lastMessage.isEmpty) {
+      return 'Открыть переписку';
+    }
 
-    if (explicitName != null && explicitName.trim().isNotEmpty) {
+    if (isOwnLastMessage) {
+      return 'Вы: $lastMessage';
+    }
+
+    return lastMessage;
+  }
+
+  String _conversationTitle() {
+    final explicitName =
+        conversation.interlocutorName;
+
+    if (explicitName != null &&
+        explicitName.trim().isNotEmpty) {
       return explicitName.trim();
     }
 
     if (currentUser.role == 'user') {
-      final therapistUserId = conversation.therapistUserId;
+      final therapistUserId =
+          conversation.therapistUserId;
 
       if (therapistUserId != null) {
-        final therapistName = therapistNamesByUserId[therapistUserId];
+        final therapistName =
+            therapistNamesByUserId[
+                therapistUserId];
 
-        if (therapistName != null && therapistName.trim().isNotEmpty) {
+        if (therapistName != null &&
+            therapistName.trim().isNotEmpty) {
           return therapistName.trim();
         }
       }
 
-      final fallbackName = conversation.therapistName;
+      final fallbackName =
+          conversation.therapistName;
 
-      if (fallbackName != null && fallbackName.trim().isNotEmpty) {
+      if (fallbackName != null &&
+          fallbackName.trim().isNotEmpty) {
         return fallbackName.trim();
       }
 
@@ -373,7 +529,8 @@ class _ConversationCard extends StatelessWidget {
 
     final userName = conversation.userName;
 
-    if (userName != null && userName.trim().isNotEmpty) {
+    if (userName != null &&
+        userName.trim().isNotEmpty) {
       return userName.trim();
     }
 
@@ -382,5 +539,112 @@ class _ConversationCard extends StatelessWidget {
     return userId == null
         ? 'Диалог #${conversation.id ?? ''}'
         : 'Пользователь #$userId';
+  }
+
+  String _formatConversationDate(
+    DateTime? date,
+  ) {
+    if (date == null) {
+      return '';
+    }
+
+    final localDate = date.toLocal();
+    final now = DateTime.now();
+
+    final today = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    );
+
+    final messageDay = DateTime(
+      localDate.year,
+      localDate.month,
+      localDate.day,
+    );
+
+    final difference =
+        today.difference(messageDay).inDays;
+
+    if (difference == 0) {
+      return _formatTime(localDate);
+    }
+
+    if (difference == 1) {
+      return 'Вчера';
+    }
+
+    if (localDate.year == now.year) {
+      return '${localDate.day.toString().padLeft(2, '0')}.'
+          '${localDate.month.toString().padLeft(2, '0')}';
+    }
+
+    return '${localDate.day.toString().padLeft(2, '0')}.'
+        '${localDate.month.toString().padLeft(2, '0')}.'
+        '${localDate.year}';
+  }
+
+  String _formatTime(DateTime date) {
+    final hour =
+        date.hour.toString().padLeft(2, '0');
+    final minute =
+        date.minute.toString().padLeft(2, '0');
+
+    return '$hour:$minute';
+  }
+}
+
+class _UnreadBadge extends StatelessWidget {
+  final int count;
+
+  const _UnreadBadge({
+    required this.count,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    final text = count > 99
+        ? '99+'
+        : count > 0
+            ? count.toString()
+            : '';
+
+    if (text.isEmpty) {
+      return Container(
+        width: 10,
+        height: 10,
+        decoration: BoxDecoration(
+          color: theme.colorScheme.primary,
+          shape: BoxShape.circle,
+        ),
+      );
+    }
+
+    return Container(
+      constraints: const BoxConstraints(
+        minWidth: 22,
+        minHeight: 22,
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 7,
+        vertical: 3,
+      ),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary,
+        borderRadius: AppRadius.medium,
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        text,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onPrimary,
+          fontWeight: FontWeight.w800,
+          fontSize: 11,
+          height: 1,
+        ),
+      ),
+    );
   }
 }

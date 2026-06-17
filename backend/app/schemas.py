@@ -410,9 +410,16 @@ class ConversationResponse(BaseModel):
     user_id: int
     therapist_user_id: int
     created_at: datetime
-
+    last_message_at: datetime
+    user_last_read_at: Optional[datetime] = None
+    therapist_last_read_at: Optional[datetime] = None
     user_name: Optional[str] = None
     therapist_name: Optional[str] = None
+    last_message_text: Optional[str] = None
+    last_message_sender_id: Optional[int] = None
+    unread_count: int = 0
+    has_unread: bool = False
+
 
 class ConversationMessageCreate(BaseModel):
     content: str = Field(min_length=1)
@@ -427,6 +434,13 @@ class ConversationMessageResponse(BaseModel):
     content: str
     shared_diary_entry_id: Optional[int] = None
     created_at: datetime
+
+
+class ConversationReadResponse(BaseModel):
+    conversation_id: int
+    read_at: datetime
+    unread_count: int
+    has_unread: bool
 
 
 class ShareDiaryEntryRequest(BaseModel):

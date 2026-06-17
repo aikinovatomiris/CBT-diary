@@ -269,10 +269,39 @@ class Conversation(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    therapist_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False,
+    )
 
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    therapist_user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False,
+    )
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
+
+    last_message_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
+
+    user_last_read_at = Column(
+        DateTime,
+        nullable=True,
+    )
+
+    therapist_last_read_at = Column(
+        DateTime,
+        nullable=True,
+    )
 
     user = relationship(
         "User",
@@ -290,18 +319,21 @@ class Conversation(Base):
         "ConversationMessage",
         back_populates="conversation",
         cascade="all, delete-orphan",
+        order_by="ConversationMessage.created_at",
     )
-    
+
     @property
     def user_name(self) -> str | None:
         if self.user:
             return self.user.name
+
         return None
 
     @property
     def therapist_name(self) -> str | None:
         if self.therapist:
             return self.therapist.name
+
         return None
 
 
@@ -322,7 +354,10 @@ class ConversationMessage(Base):
         nullable=False,
     )
 
-    content = Column(Text, nullable=False)
+    content = Column(
+        Text,
+        nullable=False,
+    )
 
     shared_diary_entry_id = Column(
         Integer,
@@ -330,7 +365,11 @@ class ConversationMessage(Base):
         nullable=True,
     )
 
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
 
     conversation = relationship(
         "Conversation",

@@ -28,20 +28,31 @@ bearer_scheme = HTTPBearer()
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(
-    os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "60")
+    os.getenv(
+        "JWT_ACCESS_TOKEN_EXPIRE_MINUTES",
+        "60",
+    )
 )
 
 
 if not JWT_SECRET_KEY:
-    raise ValueError("JWT_SECRET_KEY is not set in .env file")
+    raise ValueError(
+        "JWT_SECRET_KEY is not set in .env file"
+    )
 
 
 def hash_password(password: str) -> str:
     return password_context.hash(password)
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return password_context.verify(plain_password, hashed_password)
+def verify_password(
+    plain_password: str,
+    hashed_password: str,
+) -> bool:
+    return password_context.verify(
+        plain_password,
+        hashed_password,
+    )
 
 
 def create_access_token(
@@ -51,13 +62,25 @@ def create_access_token(
     to_encode = data.copy()
 
     if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
+        expire = (
+            datetime.now(timezone.utc)
+            + expires_delta
+        )
     else:
-        expire = datetime.now(timezone.utc) + timedelta(
-            minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+        expire = (
+            datetime.now(timezone.utc)
+            + timedelta(
+                minutes=(
+                    JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+                )
+            )
         )
 
-    to_encode.update({"exp": expire})
+    to_encode.update(
+        {
+            "exp": expire,
+        }
+    )
 
     encoded_jwt = jwt.encode(
         to_encode,
@@ -68,21 +91,16 @@ def create_access_token(
     return encoded_jwt
 
 
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
-    db: Session = Depends(get_db),
-) -> User:
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Не удалось подтвердить авторизацию",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
-    token = credentials.credentials
+def decode_access_token_user_id(
+    token: str,
+) -> Optional[int]:
+    
+    if not token or not token.strip():
+        return None
 
     try:
         payload = jwt.decode(
-            token,
+            token.strip(),
             JWT_SECRET_KEY,
             algorithms=[JWT_ALGORITHM],
         )
@@ -90,19 +108,38 @@ def get_current_user(
         user_id = payload.get("sub")
 
         if user_id is None:
-            raise credentials_exception
+            return None
 
-    except JWTError:
-        raise credentials_exception
+        return int(user_id)
 
-    try:
-        user_id_int = int(user_id)
-    except ValueError:
+    except (JWTError, TypeError, ValueError):
+        return None
+
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(
+        bearer_scheme
+    ),
+    db: Session = Depends(get_db),
+) -> User:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Не удалось подтвердить авторизацию",
+        headers={
+            "WWW-Authenticate": "Bearer",
+        },
+    )
+
+    token = credentials.credentials
+
+    user_id = decode_access_token_user_id(token)
+
+    if user_id is None:
         raise credentials_exception
 
     user = (
         db.query(User)
-        .filter(User.id == user_id_int)
+        .filter(User.id == user_id)
         .first()
     )
 
@@ -139,7 +176,10 @@ def require_therapist(
 def require_user_or_therapist(
     current_user: User = Depends(get_current_user),
 ) -> User:
-    if current_user.role not in ["user", "therapist"]:
+    if current_user.role not in [
+        "user",
+        "therapist",
+    ]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Недостаточно прав доступа",

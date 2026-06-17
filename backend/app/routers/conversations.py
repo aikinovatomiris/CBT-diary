@@ -1,7 +1,19 @@
-from typing import List
+from datetime import datetime
+from typing import Any, Dict, List
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session, selectinload
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
+from sqlalchemy.orm import (
+    Session,
+    selectinload,
+)
 
 from app.database import get_db
 from app.models import (
@@ -15,11 +27,18 @@ from app.schemas import (
     ConversationCreate,
     ConversationMessageCreate,
     ConversationMessageResponse,
+    ConversationReadResponse,
     ConversationResponse,
     DiaryEntryResponse,
     ShareDiaryEntryRequest,
 )
-from app.security import get_current_user
+from app.security import (
+    decode_access_token_user_id,
+    get_current_user,
+)
+from app.websocket_manager import (
+    conversation_connection_manager,
+)
 
 
 router = APIRouter(
@@ -28,7 +47,9 @@ router = APIRouter(
 )
 
 
-SHARED_DIARY_MESSAGE_CONTENT = "Пользователь поделился КПТ-записью"
+SHARED_DIARY_MESSAGE_CONTENT = (
+    "Пользователь поделился КПТ-записью"
+)
 
 
 def get_conversation_or_404(
@@ -41,7 +62,9 @@ def get_conversation_or_404(
             selectinload(Conversation.user),
             selectinload(Conversation.therapist),
         )
-        .filter(Conversation.id == conversation_id)
+        .filter(
+            Conversation.id == conversation_id,
+        )
         .first()
     )
 
@@ -64,7 +87,9 @@ def get_conversation_with_participants_or_404(
             selectinload(Conversation.user),
             selectinload(Conversation.therapist),
         )
-        .filter(Conversation.id == conversation_id)
+        .filter(
+            Conversation.id == conversation_id,
+        )
         .first()
     )
 
@@ -80,21 +105,47 @@ def get_conversation_with_participants_or_404(
 def ensure_conversation_participant(
     conversation: Conversation,
     current_user: User,
-):
+) -> None:
     if current_user.role == "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin не участвует в переписках",
         )
 
-    is_user_participant = current_user.id == conversation.user_id
-    is_therapist_participant = current_user.id == conversation.therapist_user_id
+    is_user_participant = (
+        current_user.id == conversation.user_id
+    )
 
-    if not is_user_participant and not is_therapist_participant:
+    is_therapist_participant = (
+        current_user.id
+        == conversation.therapist_user_id
+    )
+
+    if (
+        not is_user_participant
+        and not is_therapist_participant
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Нет доступа к этой переписке",
         )
+
+
+def is_conversation_participant(
+    conversation: Conversation,
+    user: User,
+) -> bool:
+    """
+    Версия проверки без HTTPException.
+    """
+
+    if user.role == "admin":
+        return False
+
+    return user.id in {
+        conversation.user_id,
+        conversation.therapist_user_id,
+    }
 
 
 def get_approved_therapist_profile_or_400(
@@ -104,7 +155,8 @@ def get_approved_therapist_profile_or_400(
     therapist_profile = (
         db.query(TherapistProfile)
         .filter(
-            TherapistProfile.user_id == therapist_user_id,
+            TherapistProfile.user_id
+            == therapist_user_id,
             TherapistProfile.status == "approved",
         )
         .first()
@@ -113,7 +165,10 @@ def get_approved_therapist_profile_or_400(
     if not therapist_profile:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Можно писать только одобренному терапевту",
+            detail=(
+                "Можно писать только "
+                "одобренному терапевту"
+            ),
         )
 
     return therapist_profile
@@ -146,12 +201,14 @@ def ensure_diary_entry_was_shared_in_conversation(
     conversation: Conversation,
     diary_entry_id: int,
     db: Session,
-):
+) -> None:
     shared_message = (
         db.query(ConversationMessage)
         .filter(
-            ConversationMessage.conversation_id == conversation.id,
-            ConversationMessage.shared_diary_entry_id == diary_entry_id,
+            ConversationMessage.conversation_id
+            == conversation.id,
+            ConversationMessage.shared_diary_entry_id
+            == diary_entry_id,
         )
         .first()
     )
@@ -159,8 +216,334 @@ def ensure_diary_entry_was_shared_in_conversation(
     if not shared_message:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Эта дневниковая запись не была расшарена в данной переписке",
+            detail=(
+                "Эта дневниковая запись не была "
+                "расшарена в данной переписке"
+            ),
         )
+
+
+def get_last_message(
+    conversation_id: int,
+    db: Session,
+) -> ConversationMessage | None:
+    return (
+        db.query(ConversationMessage)
+        .filter(
+            ConversationMessage.conversation_id
+            == conversation_id,
+        )
+        .order_by(
+            ConversationMessage.created_at.desc(),
+            ConversationMessage.id.desc(),
+        )
+        .first()
+    )
+
+
+def get_last_read_at(
+    conversation: Conversation,
+    current_user: User,
+) -> datetime | None:
+    if current_user.id == conversation.user_id:
+        return conversation.user_last_read_at
+
+    if (
+        current_user.id
+        == conversation.therapist_user_id
+    ):
+        return conversation.therapist_last_read_at
+
+    return None
+
+
+def get_unread_count(
+    conversation: Conversation,
+    current_user: User,
+    db: Session,
+) -> int:
+    last_read_at = get_last_read_at(
+        conversation=conversation,
+        current_user=current_user,
+    )
+
+    query = (
+        db.query(ConversationMessage)
+        .filter(
+            ConversationMessage.conversation_id
+            == conversation.id,
+            ConversationMessage.sender_id
+            != current_user.id,
+        )
+    )
+
+    if last_read_at is not None:
+        query = query.filter(
+            ConversationMessage.created_at
+            > last_read_at,
+        )
+
+    return query.count()
+
+
+def build_conversation_response(
+    conversation: Conversation,
+    current_user: User,
+    db: Session,
+) -> Dict[str, Any]:
+    last_message = get_last_message(
+        conversation_id=conversation.id,
+        db=db,
+    )
+
+    unread_count = get_unread_count(
+        conversation=conversation,
+        current_user=current_user,
+        db=db,
+    )
+
+    return {
+        "id": conversation.id,
+        "user_id": conversation.user_id,
+        "therapist_user_id": (
+            conversation.therapist_user_id
+        ),
+        "created_at": conversation.created_at,
+        "last_message_at": (
+            conversation.last_message_at
+        ),
+        "user_last_read_at": (
+            conversation.user_last_read_at
+        ),
+        "therapist_last_read_at": (
+            conversation.therapist_last_read_at
+        ),
+        "user_name": conversation.user_name,
+        "therapist_name": (
+            conversation.therapist_name
+        ),
+        "last_message_text": (
+            last_message.content
+            if last_message is not None
+            else None
+        ),
+        "last_message_sender_id": (
+            last_message.sender_id
+            if last_message is not None
+            else None
+        ),
+        "unread_count": unread_count,
+        "has_unread": unread_count > 0,
+    }
+
+
+def mark_conversation_as_read(
+    conversation: Conversation,
+    current_user: User,
+    read_at: datetime,
+) -> None:
+    if current_user.id == conversation.user_id:
+        conversation.user_last_read_at = read_at
+        return
+
+    if (
+        current_user.id
+        == conversation.therapist_user_id
+    ):
+        conversation.therapist_last_read_at = (
+            read_at
+        )
+        return
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Нет доступа к этой переписке",
+    )
+
+
+def update_conversation_after_new_message(
+    conversation: Conversation,
+    message: ConversationMessage,
+    current_user: User,
+) -> None:
+    message_created_at = (
+        message.created_at
+        or datetime.utcnow()
+    )
+
+    conversation.last_message_at = (
+        message_created_at
+    )
+
+    mark_conversation_as_read(
+        conversation=conversation,
+        current_user=current_user,
+        read_at=message_created_at,
+    )
+
+
+def build_message_websocket_payload(
+    message: ConversationMessage,
+) -> Dict[str, Any]:
+
+    created_at = message.created_at
+
+    return {
+        "type": "new_message",
+        "conversation_id": (
+            message.conversation_id
+        ),
+        "message": {
+            "id": message.id,
+            "conversation_id": (
+                message.conversation_id
+            ),
+            "sender_id": message.sender_id,
+            "content": message.content,
+            "shared_diary_entry_id": (
+                message.shared_diary_entry_id
+            ),
+            "created_at": (
+                created_at.isoformat()
+                if created_at is not None
+                else None
+            ),
+        },
+    }
+
+
+async def broadcast_new_message(
+    message: ConversationMessage,
+) -> None:
+    payload = build_message_websocket_payload(
+        message
+    )
+
+    await (
+        conversation_connection_manager
+        .broadcast_to_conversation(
+            conversation_id=(
+                message.conversation_id
+            ),
+            payload=payload,
+        )
+    )
+
+
+@router.websocket(
+    "/{conversation_id}/ws",
+)
+async def conversation_websocket(
+    websocket: WebSocket,
+    conversation_id: int,
+    token: str = Query(...),
+    db: Session = Depends(get_db),
+):
+
+    user_id = decode_access_token_user_id(
+        token
+    )
+
+    if user_id is None:
+        await websocket.close(
+            code=1008,
+            reason="Недействительный токен",
+        )
+        return
+
+    current_user = (
+        db.query(User)
+        .filter(User.id == user_id)
+        .first()
+    )
+
+    if current_user is None:
+        await websocket.close(
+            code=1008,
+            reason="Пользователь не найден",
+        )
+        return
+
+    conversation = (
+        db.query(Conversation)
+        .filter(
+            Conversation.id == conversation_id,
+        )
+        .first()
+    )
+
+    if conversation is None:
+        await websocket.close(
+            code=1008,
+            reason="Переписка не найдена",
+        )
+        return
+
+    if not is_conversation_participant(
+        conversation=conversation,
+        user=current_user,
+    ):
+        await websocket.close(
+            code=1008,
+            reason="Нет доступа к переписке",
+        )
+        return
+
+    await (
+        conversation_connection_manager.connect(
+            conversation_id=conversation_id,
+            user_id=current_user.id,
+            websocket=websocket,
+        )
+    )
+
+    try:
+        await websocket.send_json(
+            {
+                "type": "connected",
+                "conversation_id": (
+                    conversation_id
+                ),
+                "user_id": current_user.id,
+            }
+        )
+
+        while True:
+            client_data = (
+                await websocket.receive_text()
+            )
+
+            if client_data.strip().lower() == "ping":
+                await websocket.send_json(
+                    {
+                        "type": "pong",
+                        "conversation_id": (
+                            conversation_id
+                        ),
+                    }
+                )
+
+    except WebSocketDisconnect:
+        conversation_connection_manager.disconnect(
+            conversation_id=conversation_id,
+            user_id=current_user.id,
+            websocket=websocket,
+        )
+
+    except Exception:
+        conversation_connection_manager.disconnect(
+            conversation_id=conversation_id,
+            user_id=current_user.id,
+            websocket=websocket,
+        )
+
+        try:
+            await websocket.close(
+                code=1011,
+                reason="Ошибка WebSocket-соединения",
+            )
+        except Exception:
+            pass
 
 
 @router.post(
@@ -171,18 +554,24 @@ def ensure_diary_entry_was_shared_in_conversation(
 def create_or_get_conversation(
     conversation_data: ConversationCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        get_current_user
+    ),
 ):
     if current_user.role != "user":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Создавать переписку может только обычный пользователь",
+            detail=(
+                "Создавать переписку может "
+                "только обычный пользователь"
+            ),
         )
 
     therapist = (
         db.query(User)
         .filter(
-            User.id == conversation_data.therapist_user_id,
+            User.id
+            == conversation_data.therapist_user_id,
             User.role == "therapist",
         )
         .first()
@@ -206,26 +595,46 @@ def create_or_get_conversation(
             selectinload(Conversation.therapist),
         )
         .filter(
-            Conversation.user_id == current_user.id,
-            Conversation.therapist_user_id == therapist.id,
+            Conversation.user_id
+            == current_user.id,
+            Conversation.therapist_user_id
+            == therapist.id,
         )
         .first()
     )
 
     if existing_conversation:
-        return existing_conversation
+        return build_conversation_response(
+            conversation=existing_conversation,
+            current_user=current_user,
+            db=db,
+        )
+
+    now = datetime.utcnow()
 
     conversation = Conversation(
         user_id=current_user.id,
         therapist_user_id=therapist.id,
+        created_at=now,
+        last_message_at=now,
+        user_last_read_at=now,
+        therapist_last_read_at=None,
     )
 
     db.add(conversation)
     db.commit()
     db.refresh(conversation)
 
-    return get_conversation_with_participants_or_404(
-        conversation_id=conversation.id,
+    conversation = (
+        get_conversation_with_participants_or_404(
+            conversation_id=conversation.id,
+            db=db,
+        )
+    )
+
+    return build_conversation_response(
+        conversation=conversation,
+        current_user=current_user,
         db=db,
     )
 
@@ -236,7 +645,9 @@ def create_or_get_conversation(
 )
 def get_my_conversations(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        get_current_user
+    ),
 ):
     base_query = (
         db.query(Conversation)
@@ -249,37 +660,62 @@ def get_my_conversations(
     if current_user.role == "user":
         conversations = (
             base_query
-            .filter(Conversation.user_id == current_user.id)
-            .order_by(Conversation.created_at.desc())
+            .filter(
+                Conversation.user_id
+                == current_user.id,
+            )
+            .order_by(
+                Conversation.last_message_at.desc(),
+                Conversation.id.desc(),
+            )
             .all()
         )
 
-        return conversations
-
-    if current_user.role == "therapist":
+    elif current_user.role == "therapist":
         conversations = (
             base_query
-            .filter(Conversation.therapist_user_id == current_user.id)
-            .order_by(Conversation.created_at.desc())
+            .filter(
+                Conversation.therapist_user_id
+                == current_user.id,
+            )
+            .order_by(
+                Conversation.last_message_at.desc(),
+                Conversation.id.desc(),
+            )
             .all()
         )
 
-        return conversations
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Admin не участвует "
+                "в переписках"
+            ),
+        )
 
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail="Admin не участвует в переписках",
-    )
+    return [
+        build_conversation_response(
+            conversation=conversation,
+            current_user=current_user,
+            db=db,
+        )
+        for conversation in conversations
+    ]
 
 
 @router.get(
     "/{conversation_id}/messages",
-    response_model=List[ConversationMessageResponse],
+    response_model=List[
+        ConversationMessageResponse
+    ],
 )
 def get_conversation_messages(
     conversation_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        get_current_user
+    ),
 ):
     conversation = get_conversation_or_404(
         conversation_id=conversation_id,
@@ -293,8 +729,14 @@ def get_conversation_messages(
 
     messages = (
         db.query(ConversationMessage)
-        .filter(ConversationMessage.conversation_id == conversation.id)
-        .order_by(ConversationMessage.created_at.asc())
+        .filter(
+            ConversationMessage.conversation_id
+            == conversation.id,
+        )
+        .order_by(
+            ConversationMessage.created_at.asc(),
+            ConversationMessage.id.asc(),
+        )
         .all()
     )
 
@@ -306,11 +748,13 @@ def get_conversation_messages(
     response_model=ConversationMessageResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def send_conversation_message(
+async def send_conversation_message(
     conversation_id: int,
     message_data: ConversationMessageCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        get_current_user
+    ),
 ):
     conversation = get_conversation_or_404(
         conversation_id=conversation_id,
@@ -324,7 +768,9 @@ def send_conversation_message(
 
     if current_user.role == "user":
         get_approved_therapist_profile_or_400(
-            therapist_user_id=conversation.therapist_user_id,
+            therapist_user_id=(
+                conversation.therapist_user_id
+            ),
             db=db,
         )
 
@@ -336,10 +782,60 @@ def send_conversation_message(
     )
 
     db.add(message)
+    db.flush()
+
+    update_conversation_after_new_message(
+        conversation=conversation,
+        message=message,
+        current_user=current_user,
+    )
+
     db.commit()
     db.refresh(message)
 
+    await broadcast_new_message(message)
+
     return message
+
+
+@router.patch(
+    "/{conversation_id}/read",
+    response_model=ConversationReadResponse,
+)
+def mark_conversation_read(
+    conversation_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        get_current_user
+    ),
+):
+    conversation = get_conversation_or_404(
+        conversation_id=conversation_id,
+        db=db,
+    )
+
+    ensure_conversation_participant(
+        conversation=conversation,
+        current_user=current_user,
+    )
+
+    read_at = datetime.utcnow()
+
+    mark_conversation_as_read(
+        conversation=conversation,
+        current_user=current_user,
+        read_at=read_at,
+    )
+
+    db.commit()
+    db.refresh(conversation)
+
+    return {
+        "conversation_id": conversation.id,
+        "read_at": read_at,
+        "unread_count": 0,
+        "has_unread": False,
+    }
 
 
 @router.post(
@@ -347,16 +843,21 @@ def send_conversation_message(
     response_model=ConversationMessageResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def share_diary_entry_in_conversation(
+async def share_diary_entry_in_conversation(
     conversation_id: int,
     share_data: ShareDiaryEntryRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        get_current_user
+    ),
 ):
     if current_user.role != "user":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Дневниковой записью может делиться только обычный пользователь",
+            detail=(
+                "Дневниковой записью может "
+                "делиться только обычный пользователь"
+            ),
         )
 
     conversation = get_conversation_or_404(
@@ -364,19 +865,29 @@ def share_diary_entry_in_conversation(
         db=db,
     )
 
-    if conversation.user_id != current_user.id:
+    if (
+        conversation.user_id
+        != current_user.id
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Можно делиться дневниковой записью только в своей переписке",
+            detail=(
+                "Можно делиться дневниковой "
+                "записью только в своей переписке"
+            ),
         )
 
     get_approved_therapist_profile_or_400(
-        therapist_user_id=conversation.therapist_user_id,
+        therapist_user_id=(
+            conversation.therapist_user_id
+        ),
         db=db,
     )
 
     diary_entry = get_user_diary_entry_or_404(
-        diary_entry_id=share_data.diary_entry_id,
+        diary_entry_id=(
+            share_data.diary_entry_id
+        ),
         current_user=current_user,
         db=db,
     )
@@ -389,21 +900,36 @@ def share_diary_entry_in_conversation(
     )
 
     db.add(message)
+    db.flush()
+
+    update_conversation_after_new_message(
+        conversation=conversation,
+        message=message,
+        current_user=current_user,
+    )
+
     db.commit()
     db.refresh(message)
+
+    await broadcast_new_message(message)
 
     return message
 
 
 @router.get(
-    "/{conversation_id}/shared-diary/{diary_entry_id}",
+    (
+        "/{conversation_id}/shared-diary/"
+        "{diary_entry_id}"
+    ),
     response_model=DiaryEntryResponse,
 )
 def get_shared_diary_entry_in_conversation(
     conversation_id: int,
     diary_entry_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        get_current_user
+    ),
 ):
     conversation = get_conversation_or_404(
         conversation_id=conversation_id,
@@ -425,7 +951,8 @@ def get_shared_diary_entry_in_conversation(
         db.query(DiaryEntry)
         .filter(
             DiaryEntry.id == diary_entry_id,
-            DiaryEntry.user_id == conversation.user_id,
+            DiaryEntry.user_id
+            == conversation.user_id,
         )
         .first()
     )

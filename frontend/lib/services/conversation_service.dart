@@ -6,6 +6,10 @@ import 'api_exception.dart';
 class ConversationService {
   ConversationService._();
 
+  // ============================================================
+  // POST /conversations
+  // ============================================================
+
   static Future<ConversationModel> createConversation(
     int therapistUserId,
   ) async {
@@ -18,44 +22,67 @@ class ConversationService {
       );
 
       final data = _safeMap(response.data);
+
       return ConversationModel.fromJson(data);
     } on ApiException {
       rethrow;
     } catch (_) {
       throw const ApiException(
-        message: 'Не удалось создать переписку со специалистом.',
+        message:
+            'Не удалось создать переписку со специалистом.',
       );
     }
   }
 
+  // ============================================================
+  // GET /conversations
+  // ============================================================
+
   static Future<List<ConversationModel>> getConversations() async {
     try {
-      final response = await ApiClient.get('/conversations');
+      final response = await ApiClient.get(
+        '/conversations',
+      );
+
       final data = response.data;
 
-      if (data is List) {
-        final conversations = data.whereType<Map>().map((item) {
-          return ConversationModel.fromJson(
-            Map<String, dynamic>.from(item),
-          );
-        }).toList();
-
-        conversations.sort((a, b) {
-          final unreadCompare = b.unreadCount.compareTo(a.unreadCount);
-          if (unreadCompare != 0) return unreadCompare;
-
-          final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-          final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-
-          return bDate.compareTo(aDate);
-        });
-
-        return conversations;
+      if (data is! List) {
+        throw const ApiException(
+          message:
+              'Сервер вернул некорректный список переписок.',
+        );
       }
 
-      throw const ApiException(
-        message: 'Сервер вернул некорректный список переписок.',
-      );
+      final conversations = data
+          .whereType<Map>()
+          .map(
+            (item) => ConversationModel.fromJson(
+              Map<String, dynamic>.from(item),
+            ),
+          )
+          .toList();
+
+      // Backend уже сортирует чаты по last_message_at.
+      // Локальная сортировка оставлена как страховка.
+      conversations.sort((a, b) {
+        final aDate = a.lastMessageAt ??
+            a.createdAt ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+
+        final bDate = b.lastMessageAt ??
+            b.createdAt ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+
+        final dateCompare = bDate.compareTo(aDate);
+
+        if (dateCompare != 0) {
+          return dateCompare;
+        }
+
+        return (b.id ?? 0).compareTo(a.id ?? 0);
+      });
+
+      return conversations;
     } on ApiException {
       rethrow;
     } catch (_) {
@@ -64,6 +91,10 @@ class ConversationService {
       );
     }
   }
+
+  // ============================================================
+  // GET /conversations/{conversation_id}/messages
+  // ============================================================
 
   static Future<List<ConversationMessageModel>> getMessages(
     int conversationId,
@@ -75,17 +106,39 @@ class ConversationService {
 
       final data = response.data;
 
-      if (data is List) {
-        return data.whereType<Map>().map((item) {
-          return ConversationMessageModel.fromJson(
-            Map<String, dynamic>.from(item),
-          );
-        }).toList();
+      if (data is! List) {
+        throw const ApiException(
+          message:
+              'Сервер вернул некорректный список сообщений.',
+        );
       }
 
-      throw const ApiException(
-        message: 'Сервер вернул некорректный список сообщений.',
-      );
+      final messages = data
+          .whereType<Map>()
+          .map(
+            (item) => ConversationMessageModel.fromJson(
+              Map<String, dynamic>.from(item),
+            ),
+          )
+          .toList();
+
+      messages.sort((a, b) {
+        final aDate = a.createdAt ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+
+        final bDate = b.createdAt ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+
+        final dateCompare = aDate.compareTo(bDate);
+
+        if (dateCompare != 0) {
+          return dateCompare;
+        }
+
+        return (a.id ?? 0).compareTo(b.id ?? 0);
+      });
+
+      return messages;
     } on ApiException {
       rethrow;
     } catch (_) {
@@ -94,6 +147,10 @@ class ConversationService {
       );
     }
   }
+
+  // ============================================================
+  // POST /conversations/{conversation_id}/messages
+  // ============================================================
 
   static Future<ConversationMessageModel> sendMessage(
     int conversationId,
@@ -116,6 +173,7 @@ class ConversationService {
       );
 
       final data = _safeMap(response.data);
+
       return ConversationMessageModel.fromJson(data);
     } on ApiException {
       rethrow;
@@ -125,6 +183,31 @@ class ConversationService {
       );
     }
   }
+
+  // ============================================================
+  // PATCH /conversations/{conversation_id}/read
+  // ============================================================
+
+  static Future<void> markConversationAsRead(
+    int conversationId,
+  ) async {
+    try {
+      await ApiClient.patch(
+        '/conversations/$conversationId/read',
+      );
+    } on ApiException {
+      rethrow;
+    } catch (_) {
+      throw const ApiException(
+        message:
+            'Не удалось отметить сообщения прочитанными.',
+      );
+    }
+  }
+
+  // ============================================================
+  // POST /conversations/{conversation_id}/share-diary-entry
+  // ============================================================
 
   static Future<ConversationMessageModel> shareDiaryEntry(
     int conversationId,
@@ -139,15 +222,21 @@ class ConversationService {
       );
 
       final data = _safeMap(response.data);
+
       return ConversationMessageModel.fromJson(data);
     } on ApiException {
       rethrow;
     } catch (_) {
       throw const ApiException(
-        message: 'Не удалось поделиться дневниковой записью.',
+        message:
+            'Не удалось поделиться дневниковой записью.',
       );
     }
   }
+
+  // ============================================================
+  // GET /conversations/{conversation_id}/shared-diary/{entry_id}
+  // ============================================================
 
   static Future<DiaryEntryModel> getSharedDiaryEntry(
     int conversationId,
@@ -159,15 +248,21 @@ class ConversationService {
       );
 
       final data = _safeMap(response.data);
+
       return DiaryEntryModel.fromJson(data);
     } on ApiException {
       rethrow;
     } catch (_) {
       throw const ApiException(
-        message: 'Не удалось загрузить общую дневниковую запись.',
+        message:
+            'Не удалось загрузить общую дневниковую запись.',
       );
     }
   }
+
+  // ============================================================
+  // HELPERS
+  // ============================================================
 
   static Map<String, dynamic> _safeMap(dynamic data) {
     if (data is Map<String, dynamic>) {
