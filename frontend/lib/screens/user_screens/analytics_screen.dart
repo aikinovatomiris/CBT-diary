@@ -1,8 +1,15 @@
+// ignore_for_file: deprecated_member_use
+
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../models/analytics_model.dart';
+import '../../navigation/app_routes.dart';
 import '../../services/analytics_service.dart';
 import '../../services/api_exception.dart';
+import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
 import '../../theme/app_spacing.dart';
 import '../../widgets/app_card.dart';
@@ -10,85 +17,68 @@ import '../../widgets/app_error_view.dart';
 import '../../widgets/app_loading.dart';
 
 class AnalyticsScreen extends StatefulWidget {
-  const AnalyticsScreen({super.key});
+  const AnalyticsScreen({
+    super.key,
+  });
 
   @override
-  State<AnalyticsScreen> createState() => _AnalyticsScreenState();
+  State<AnalyticsScreen> createState() {
+    return _AnalyticsScreenState();
+  }
 }
 
-class _AnalyticsData {
-  final AnalyticsSummaryModel summary;
-  final List<AnalyticsDistortionModel> distortions;
-  final List<AnalyticsTechniqueModel> techniques;
-
-  const _AnalyticsData({
-    required this.summary,
-    required this.distortions,
-    required this.techniques,
-  });
-}
-
-class _AnalyticsScreenState extends State<AnalyticsScreen> {
-  late Future<_AnalyticsData> _analyticsFuture;
+class _AnalyticsScreenState
+    extends State<AnalyticsScreen> {
+  late Future<AnalyticsDetailsData>
+  _analyticsFuture;
 
   @override
   void initState() {
     super.initState();
-    _analyticsFuture = _loadAnalytics();
-  }
 
-  Future<_AnalyticsData> _loadAnalytics() async {
-    final summary = await AnalyticsService.getSummary();
-    final distortionsResponse = await AnalyticsService.getDistortions();
-    final techniquesResponse = await AnalyticsService.getTechniques();
-
-    return _AnalyticsData(
-      summary: summary,
-      distortions: distortionsResponse.items,
-      techniques: techniquesResponse.items,
-    );
+    _analyticsFuture =
+        AnalyticsService.getDetails();
   }
 
   Future<void> _refresh() async {
     setState(() {
-      _analyticsFuture = _loadAnalytics();
+      _analyticsFuture =
+          AnalyticsService.getDetails();
     });
 
     await _analyticsFuture;
   }
 
-  String _formatDate(DateTime? date) {
-    if (date == null) return 'Нет данных';
-
-    final day = date.day.toString().padLeft(2, '0');
-    final month = date.month.toString().padLeft(2, '0');
-    final year = date.year.toString();
-
-    return '$day.$month.$year';
-  }
-
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<_AnalyticsData>(
+    return FutureBuilder<
+        AnalyticsDetailsData>(
       future: _analyticsFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState ==
+            ConnectionState.waiting) {
           return const Scaffold(
             body: AppLoading(
-              text: 'Загрузка аналитики...',
+              text:
+                  'Загрузка аналитики...',
             ),
           );
         }
 
         if (snapshot.hasError) {
           final error = snapshot.error;
-          final message = error is ApiException
+
+          final message =
+              error is ApiException
               ? error.message
               : 'Не удалось загрузить аналитику.';
 
           return Scaffold(
             appBar: AppBar(
-              title: const Text('Аналитика'),
+              title:
+                  const Text(
+                'Аналитика',
+              ),
             ),
             body: AppErrorView(
               message: message,
@@ -102,10 +92,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         if (data == null) {
           return Scaffold(
             appBar: AppBar(
-              title: const Text('Аналитика'),
+              title:
+                  const Text(
+                'Аналитика',
+              ),
             ),
             body: AppErrorView(
-              message: 'Нет данных аналитики.',
+              message:
+                  'Нет данных аналитики.',
               onRetry: _refresh,
             ),
           );
@@ -114,78 +108,151 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         return _AnalyticsContent(
           data: data,
           onRefresh: _refresh,
-          formatDate: _formatDate,
         );
       },
     );
   }
 }
 
-class _AnalyticsContent extends StatelessWidget {
-  final _AnalyticsData data;
-  final Future<void> Function() onRefresh;
-  final String Function(DateTime?) formatDate;
+class _AnalyticsContent
+    extends StatelessWidget {
+  final AnalyticsDetailsData data;
+
+  final Future<void> Function()
+  onRefresh;
 
   const _AnalyticsContent({
     required this.data,
     required this.onRefresh,
-    required this.formatDate,
   });
 
   @override
   Widget build(BuildContext context) {
-    final summary = data.summary;
-
-    final totalSessions = summary.totalSessions ?? 0;
-    final finishedSessions = summary.finishedSessions ?? 0;
-    final totalDiaryEntries = summary.totalDiaryEntries ?? 0;
+    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Аналитика'),
+        title:
+            const Text('Аналитика'),
+        leading: IconButton(
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(
+                AppRoutes.home,
+              );
+            }
+          },
+          icon: const Icon(
+            Icons
+                .arrow_back_rounded,
+          ),
+        ),
       ),
       body: SafeArea(
         child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth > 750;
+          builder: (
+            context,
+            constraints,
+          ) {
+            final isWide =
+                constraints.maxWidth >
+                760;
 
             return Center(
               child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: isWide ? 720 : double.infinity,
+                constraints:
+                    BoxConstraints(
+                  maxWidth:
+                      isWide
+                      ? 720
+                      : double.infinity,
                 ),
                 child: RefreshIndicator(
                   onRefresh: onRefresh,
                   child: ListView(
-                    padding: const EdgeInsets.fromLTRB(
+                    physics:
+                        const AlwaysScrollableScrollPhysics(),
+                    padding:
+                        const EdgeInsets
+                            .fromLTRB(
                       AppSpacing.xl,
+                      AppSpacing.md,
                       AppSpacing.xl,
-                      AppSpacing.xl,
-                      110,
+                      100,
                     ),
                     children: [
-                      const _AnalyticsHeader(),
-
-                      const SizedBox(height: AppSpacing.xl),
-
-                      _SummaryGrid(
-                        totalSessions: totalSessions,
-                        finishedSessions: finishedSessions,
-                        totalDiaryEntries: totalDiaryEntries,
-                        latestEntryDate: formatDate(summary.latestEntryDate),
+                      Text(
+                        'Твоя динамика',
+                        style: theme
+                            .textTheme
+                            .headlineMedium
+                            ?.copyWith(
+                          letterSpacing:
+                              -0.7,
+                        ),
                       ),
-
-                      const SizedBox(height: AppSpacing.xl),
-
-                      _TechniquesSection(
-                        techniques: data.techniques,
+                      const SizedBox(
+                        height:
+                            AppSpacing.sm,
                       ),
-
-                      const SizedBox(height: AppSpacing.xl),
-
+                      Text(
+                        'Показатели формируются на основе завершённых КПТ-сессий и записей в дневнике.',
+                        style: theme
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(
+                          color: theme
+                              .colorScheme
+                              .onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(
+                        height:
+                            AppSpacing.xxl,
+                      ),
+                      _WellbeingChartCard(
+                        wellbeing:
+                            data.wellbeingWeek,
+                      ),
+                      const SizedBox(
+                        height:
+                            AppSpacing.lg,
+                      ),
+                      _ResilienceCard(
+                        resilience:
+                            data.resilience,
+                      ),
+                      const SizedBox(
+                        height:
+                            AppSpacing.lg,
+                      ),
+                      _SummarySection(
+                        summary:
+                            data.summary,
+                      ),
+                      const SizedBox(
+                        height:
+                            AppSpacing.lg,
+                      ),
                       _DistortionsSection(
-                        distortions: data.distortions,
+                        response:
+                            data.distortions,
                       ),
+                      const SizedBox(
+                        height:
+                            AppSpacing.lg,
+                      ),
+                      _TechniquesSection(
+                        response:
+                            data.techniques,
+                      ),
+                      const SizedBox(
+                        height:
+                            AppSpacing.lg,
+                      ),
+                      const _AnalyticsNotice(),
                     ],
                   ),
                 ),
@@ -198,305 +265,1097 @@ class _AnalyticsContent extends StatelessWidget {
   }
 }
 
-class _AnalyticsHeader extends StatelessWidget {
-  const _AnalyticsHeader();
+// ============================================================
+// WEEKLY WELLBEING
+// ============================================================
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+class _WellbeingChartCard
+    extends StatelessWidget {
+  final AnalyticsWellbeingWeekModel
+  wellbeing;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Аналитика',
-          style: theme.textTheme.headlineMedium,
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Text(
-          'Краткая сводка по КПТ-сессиям, дневниковым записям, техникам и когнитивным искажениям.',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SummaryGrid extends StatelessWidget {
-  final int totalSessions;
-  final int finishedSessions;
-  final int totalDiaryEntries;
-  final String latestEntryDate;
-
-  const _SummaryGrid({
-    required this.totalSessions,
-    required this.finishedSessions,
-    required this.totalDiaryEntries,
-    required this.latestEntryDate,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: _SummaryCard(
-                title: 'Всего сессий',
-                value: totalSessions.toString(),
-                icon: Icons.chat_bubble_outline_rounded,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: _SummaryCard(
-                title: 'Завершено',
-                value: finishedSessions.toString(),
-                icon: Icons.check_circle_outline_rounded,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.md),
-        Row(
-          children: [
-            Expanded(
-              child: _SummaryCard(
-                title: 'Записей',
-                value: totalDiaryEntries.toString(),
-                icon: Icons.book_outlined,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: _SummaryCard(
-                title: 'Последняя',
-                value: latestEntryDate,
-                icon: Icons.event_note_outlined,
-                isDate: true,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _SummaryCard extends StatelessWidget {
-  final String title;
-  final String value;
-  final IconData icon;
-  final bool isDate;
-
-  const _SummaryCard({
-    required this.title,
-    required this.value,
-    required this.icon,
-    this.isDate = false,
+  const _WellbeingChartCard({
+    required this.wellbeing,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    final average =
+        wellbeing.averageScore;
 
     return AppCard(
       hasShadow: false,
-      padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            size: 22,
-            color: theme.colorScheme.primary,
+          Row(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment
+                          .start,
+                  children: [
+                    Text(
+                      'Состояние за неделю',
+                      style: theme
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(
+                        fontWeight:
+                            FontWeight
+                                .w800,
+                        letterSpacing:
+                            -0.4,
+                      ),
+                    ),
+                    const SizedBox(
+                      height:
+                          AppSpacing.xs,
+                    ),
+                    Text(
+                      wellbeing.trendTitle,
+                      style: theme
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(
+                        color: _trendColor(
+                          context,
+                          wellbeing,
+                        ),
+                        fontWeight:
+                            FontWeight
+                                .w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (average != null)
+                Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment
+                          .end,
+                  children: [
+                    Text(
+                      average
+                          .round()
+                          .toString(),
+                      style: theme
+                          .textTheme
+                          .headlineMedium
+                          ?.copyWith(
+                        fontWeight:
+                            FontWeight
+                                .w800,
+                        letterSpacing:
+                            -0.8,
+                      ),
+                    ),
+                    Text(
+                      'среднее',
+                      style: theme
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(
+                        color: theme
+                            .colorScheme
+                            .onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+            ],
           ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: isDate
-                ? theme.textTheme.titleMedium
-                : theme.textTheme.headlineMedium,
+          const SizedBox(
+            height: AppSpacing.xl,
           ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            title,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          if (wellbeing.hasData) ...[
+            SizedBox(
+              height: 230,
+              width: double.infinity,
+              child: CustomPaint(
+                painter:
+                    _DetailedWellbeingPainter(
+                  items:
+                      wellbeing.items,
+                  lineColor: theme
+                      .colorScheme
+                      .primary,
+                  gridColor: theme
+                      .dividerColor
+                      .withOpacity(
+                        0.45,
+                      ),
+                  textColor: theme
+                      .colorScheme
+                      .onSurfaceVariant,
+                  backgroundColor:
+                      theme
+                          .scaffoldBackgroundColor,
+                ),
+              ),
             ),
-          ),
+            const SizedBox(
+              height: AppSpacing.md,
+            ),
+            _DayLabels(
+              items: wellbeing.items,
+            ),
+            const SizedBox(
+              height: AppSpacing.md,
+            ),
+            Text(
+              '0 — очень тяжело, 100 — спокойно и хорошо',
+              style: theme
+                  .textTheme.bodySmall
+                  ?.copyWith(
+                color: theme
+                    .colorScheme
+                    .onSurfaceVariant,
+              ),
+            ),
+          ] else
+            const _EmptyAnalyticsBlock(
+              icon: Icons
+                  .show_chart_rounded,
+              title:
+                  'Пока недостаточно данных',
+              description:
+                  'Заверши новую КПТ-сессию и оцени общее состояние, чтобы появилась динамика.',
+            ),
         ],
       ),
     );
   }
+
+  Color _trendColor(
+    BuildContext context,
+    AnalyticsWellbeingWeekModel
+    wellbeing,
+  ) {
+    final theme =
+        Theme.of(context);
+
+    if (wellbeing.isImproving) {
+      return const Color(
+        0xFF4F9B79,
+      );
+    }
+
+    if (wellbeing.isDeclining) {
+      return theme
+          .colorScheme.error;
+    }
+
+    return theme
+        .colorScheme.primary;
+  }
 }
 
-class _TechniquesSection extends StatelessWidget {
-  final List<AnalyticsTechniqueModel> techniques;
+class _DayLabels
+    extends StatelessWidget {
+  final List<AnalyticsWellbeingDayModel>
+  items;
 
-  const _TechniquesSection({
-    required this.techniques,
+  const _DayLabels({
+    required this.items,
   });
-
-  static const List<String> expectedTechniques = [
-    'SOCRATIC_DIALOGUE',
-    'DOWNWARD_ARROW',
-    'REFRAMING',
-    'GROUNDING',
-    'SUMMARY',
-  ];
 
   @override
   Widget build(BuildContext context) {
-    final techniqueCounts = <String, int>{};
+    final theme = Theme.of(context);
 
-    for (final item in techniques) {
-      final technique = item.technique;
+    return Row(
+      children: items.map(
+        (item) {
+          return Expanded(
+            child: Column(
+              children: [
+                Text(
+                  item.safeDayLabel,
+                  style: theme
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(
+                    color: theme
+                        .colorScheme
+                        .onSurfaceVariant,
+                    fontWeight:
+                        FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(
+                  height: 3,
+                ),
+                Text(
+                  item.score == null
+                      ? '—'
+                      : item.score!
+                          .round()
+                          .toString(),
+                  style: theme
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(
+                    fontWeight:
+                        FontWeight.w800,
+                    color: item.score ==
+                            null
+                        ? theme
+                            .colorScheme
+                            .onSurfaceVariant
+                        : theme
+                            .colorScheme
+                            .primary,
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ).toList(),
+    );
+  }
+}
 
-      if (technique == null || technique.trim().isEmpty) {
+class _DetailedWellbeingPainter
+    extends CustomPainter {
+  final List<AnalyticsWellbeingDayModel>
+  items;
+
+  final Color lineColor;
+  final Color gridColor;
+  final Color textColor;
+  final Color backgroundColor;
+
+  const _DetailedWellbeingPainter({
+    required this.items,
+    required this.lineColor,
+    required this.gridColor,
+    required this.textColor,
+    required this.backgroundColor,
+  });
+
+  @override
+  void paint(
+    Canvas canvas,
+    Size size,
+  ) {
+    const leftPadding = 34.0;
+    const rightPadding = 8.0;
+    const topPadding = 12.0;
+    const bottomPadding = 8.0;
+
+    final chartWidth = math.max(
+      0,
+      size.width -
+          leftPadding -
+          rightPadding,
+    );
+
+    final chartHeight = math.max(
+      0,
+      size.height -
+          topPadding -
+          bottomPadding,
+    );
+
+    final gridPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 1;
+
+    final labelPainter =
+        TextPainter(
+      textDirection:
+          TextDirection.ltr,
+    );
+
+    const levels = [
+      100,
+      75,
+      50,
+      25,
+      0,
+    ];
+
+    for (final level in levels) {
+      final y = topPadding +
+          (100 - level) /
+              100 *
+              chartHeight;
+
+      canvas.drawLine(
+        Offset(leftPadding, y),
+        Offset(
+          leftPadding +
+              chartWidth,
+          y,
+        ),
+        gridPaint,
+      );
+
+      labelPainter.text =
+          TextSpan(
+        text: '$level',
+        style: TextStyle(
+          color: textColor,
+          fontSize: 10,
+          fontWeight:
+              FontWeight.w500,
+        ),
+      );
+
+      labelPainter.layout();
+
+      labelPainter.paint(
+        canvas,
+        Offset(
+          0,
+          y -
+              labelPainter.height /
+                  2,
+        ),
+      );
+    }
+
+    if (items.isEmpty) {
+      return;
+    }
+
+    final horizontalStep =
+        items.length <= 1
+        ? 0.0
+        : chartWidth /
+            (items.length - 1);
+
+    final points =
+        <int, Offset>{};
+
+    for (
+      int index = 0;
+      index < items.length;
+      index++
+    ) {
+      final score = items[index].score;
+
+      if (score == null) {
         continue;
       }
 
-      techniqueCounts[technique] = item.count ?? 0;
+      final normalized =
+          score.clamp(0, 100) / 100;
+
+      final x = leftPadding +
+          horizontalStep * index;
+
+      final y = topPadding +
+          (1 - normalized) *
+              chartHeight;
+
+      points[index] = Offset(x, y);
     }
 
-    final totalCount = techniqueCounts.values.fold<int>(
-      0,
-      (sum, count) => sum + count,
-    );
+    final linePaint = Paint()
+      ..color = lineColor
+      ..strokeWidth = 3.2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
 
-    return AppCard(
-      hasShadow: false,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _SectionTitle(
-            title: 'Техники ассистента',
-            subtitle: 'Какие техники чаще использовались в сессиях.',
-          ),
+    final shadowPaint = Paint()
+      ..color = lineColor
+          .withOpacity(0.13)
+      ..strokeWidth = 10
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
 
-          const SizedBox(height: AppSpacing.lg),
+    final dotPaint = Paint()
+      ..color = lineColor
+      ..style = PaintingStyle.fill;
 
-          if (totalCount == 0)
-            const _EmptyAnalyticsState(
-              text: 'Пока недостаточно данных по техникам.',
-            )
-          else
-            ...expectedTechniques.map((technique) {
-              final count = techniqueCounts[technique] ?? 0;
+    final dotBorderPaint = Paint()
+      ..color = backgroundColor
+      ..strokeWidth = 2.4
+      ..style = PaintingStyle.stroke;
 
-              return Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                child: _ProgressItem(
-                  title: _techniqueTitle(technique),
-                  subtitle: technique,
-                  count: count,
-                  maxCount: _maxCount(techniqueCounts),
-                ),
-              );
-            }),
-        ],
-      ),
-    );
-  }
+    Path? segmentPath;
+    int? previousIndex;
 
-  static int _maxCount(Map<String, int> values) {
-    if (values.isEmpty) return 1;
+    for (
+      int index = 0;
+      index < items.length;
+      index++
+    ) {
+      final point = points[index];
 
-    final max = values.values.fold<int>(
-      0,
-      (previous, current) => current > previous ? current : previous,
-    );
+      if (point == null) {
+        segmentPath = null;
+        previousIndex = null;
+        continue;
+      }
 
-    return max <= 0 ? 1 : max;
-  }
+      if (segmentPath == null ||
+          previousIndex == null ||
+          index != previousIndex + 1) {
+        segmentPath = Path()
+          ..moveTo(
+            point.dx,
+            point.dy,
+          );
+      } else {
+        final previousPoint =
+            points[previousIndex];
 
-  static String _techniqueTitle(String technique) {
-    switch (technique) {
-      case 'SOCRATIC_DIALOGUE':
-        return 'Сократический диалог';
-      case 'DOWNWARD_ARROW':
-        return 'Стрела вниз';
-      case 'REFRAMING':
-        return 'Рефрейминг';
-      case 'GROUNDING':
-        return 'Заземление';
-      case 'SUMMARY':
-        return 'Итоги';
-      default:
-        return technique;
+        if (previousPoint != null) {
+          final controlDistance =
+              (point.dx -
+                      previousPoint.dx) /
+                  2;
+
+          segmentPath.cubicTo(
+            previousPoint.dx +
+                controlDistance,
+            previousPoint.dy,
+            point.dx -
+                controlDistance,
+            point.dy,
+            point.dx,
+            point.dy,
+          );
+
+          canvas.drawPath(
+            segmentPath,
+            shadowPaint,
+          );
+
+          canvas.drawPath(
+            segmentPath,
+            linePaint,
+          );
+        }
+      }
+
+      canvas.drawCircle(
+        point,
+        5.5,
+        dotPaint,
+      );
+
+      canvas.drawCircle(
+        point,
+        5.5,
+        dotBorderPaint,
+      );
+
+      previousIndex = index;
     }
+  }
+
+  @override
+  bool shouldRepaint(
+    covariant _DetailedWellbeingPainter
+        oldDelegate,
+  ) {
+    return oldDelegate.items != items ||
+        oldDelegate.lineColor !=
+            lineColor ||
+        oldDelegate.gridColor !=
+            gridColor ||
+        oldDelegate.textColor !=
+            textColor ||
+        oldDelegate.backgroundColor !=
+            backgroundColor;
   }
 }
 
-class _DistortionsSection extends StatelessWidget {
-  final List<AnalyticsDistortionModel> distortions;
+// ============================================================
+// RESILIENCE
+// ============================================================
 
-  const _DistortionsSection({
-    required this.distortions,
+class _ResilienceCard
+    extends StatelessWidget {
+  final AnalyticsResilienceModel
+  resilience;
+
+  const _ResilienceCard({
+    required this.resilience,
   });
 
   @override
   Widget build(BuildContext context) {
-    final visibleDistortions = distortions.where((item) {
-      final name = item.name;
-      final count = item.count ?? 0;
+    final theme = Theme.of(context);
 
-      return name != null && name.trim().isNotEmpty && count > 0;
-    }).toList();
-
-    visibleDistortions.sort((a, b) {
-      final aCount = a.count ?? 0;
-      final bCount = b.count ?? 0;
-
-      return bCount.compareTo(aCount);
-    });
-
-    final maxCount = visibleDistortions.isEmpty
-        ? 1
-        : visibleDistortions
-            .map((item) => item.count ?? 0)
-            .reduce((a, b) => a > b ? a : b);
+    final score =
+        resilience.safeScore;
 
     return AppCard(
       hasShadow: false,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
         children: [
-          const _SectionTitle(
-            title: 'Когнитивные искажения',
-            subtitle: 'Частота искажений, найденных в дневниковых записях.',
+          Text(
+            'Прогресс устойчивости',
+            style: theme
+                .textTheme
+                .titleLarge
+                ?.copyWith(
+              fontWeight:
+                  FontWeight.w800,
+              letterSpacing: -0.4,
+            ),
           ),
+          const SizedBox(
+            height: AppSpacing.xs,
+          ),
+          Text(
+            resilience
+                .dataStatusTitle,
+            style: theme
+                .textTheme.bodySmall
+                ?.copyWith(
+              color: theme
+                  .colorScheme
+                  .onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(
+            height: AppSpacing.xl,
+          ),
+          if (resilience.hasData)
+            LayoutBuilder(
+              builder: (
+                context,
+                constraints,
+              ) {
+                final isWide =
+                    constraints.maxWidth >
+                    520;
 
-          const SizedBox(height: AppSpacing.lg),
+                final indicator =
+                    _ResilienceIndicator(
+                  score: score,
+                );
 
-          if (visibleDistortions.isEmpty)
-            const _EmptyAnalyticsState(
-              text: 'Пока недостаточно данных по когнитивным искажениям.',
+                final details =
+                    _ResilienceDetails(
+                  resilience:
+                      resilience,
+                );
+
+                if (isWide) {
+                  return Row(
+                    children: [
+                      indicator,
+                      const SizedBox(
+                        width:
+                            AppSpacing.xxl,
+                      ),
+                      Expanded(
+                        child: details,
+                      ),
+                    ],
+                  );
+                }
+
+                return Column(
+                  children: [
+                    indicator,
+                    const SizedBox(
+                      height:
+                          AppSpacing.xl,
+                    ),
+                    details,
+                  ],
+                );
+              },
             )
           else
-            ...visibleDistortions.map((distortion) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                child: _ProgressItem(
-                  title: distortion.name ?? 'Без названия',
-                  count: distortion.count ?? 0,
-                  maxCount: maxCount <= 0 ? 1 : maxCount,
-                ),
-              );
-            }),
+            const _EmptyAnalyticsBlock(
+              icon: Icons
+                  .favorite_border_rounded,
+              title:
+                  'Показатель ещё не рассчитан',
+              description:
+                  'Для расчёта нужна хотя бы одна завершённая сессия с итоговой оценкой состояния.',
+            ),
+          const SizedBox(
+            height: AppSpacing.lg,
+          ),
+          Text(
+            'Внутренний показатель приложения. Он не является медицинской или диагностической оценкой.',
+            style: theme
+                .textTheme.bodySmall
+                ?.copyWith(
+              color: theme
+                  .colorScheme
+                  .onSurfaceVariant,
+              height: 1.4,
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _SectionTitle extends StatelessWidget {
+class _ResilienceIndicator
+    extends StatelessWidget {
+  final int score;
+
+  const _ResilienceIndicator({
+    required this.score,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return SizedBox(
+      width: 164,
+      height: 164,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          SizedBox.expand(
+            child:
+                CircularProgressIndicator(
+              value: score / 100,
+              strokeWidth: 11,
+              strokeCap:
+                  StrokeCap.round,
+              backgroundColor: theme
+                  .colorScheme
+                  .primary
+                  .withOpacity(
+                    0.10,
+                  ),
+              color: theme
+                  .colorScheme
+                  .primary,
+            ),
+          ),
+          Column(
+            mainAxisSize:
+                MainAxisSize.min,
+            children: [
+              Icon(
+                Icons
+                    .favorite_rounded,
+                color: theme
+                    .colorScheme
+                    .primary,
+                size: 29,
+              ),
+              const SizedBox(
+                height:
+                    AppSpacing.xs,
+              ),
+              Text(
+                '$score%',
+                style: theme
+                    .textTheme
+                    .headlineMedium
+                    ?.copyWith(
+                  fontWeight:
+                      FontWeight
+                          .w800,
+                  letterSpacing:
+                      -0.9,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResilienceDetails
+    extends StatelessWidget {
+  final AnalyticsResilienceModel
+  resilience;
+
+  const _ResilienceDetails({
+    required this.resilience,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _ProgressDetailRow(
+          label:
+              'Завершение сессий',
+          value:
+              resilience
+                  .safeCompletionScore,
+          valueText:
+              '${resilience.safeCompletionScore.round()}%',
+        ),
+        const SizedBox(
+          height: AppSpacing.lg,
+        ),
+        _ProgressDetailRow(
+          label:
+              'Среднее состояние',
+          value: resilience
+              .safeAverageWellbeingScore,
+          valueText:
+              '${resilience.safeAverageWellbeingScore.round()}',
+        ),
+        const SizedBox(
+          height: AppSpacing.lg,
+        ),
+        _InformationRow(
+          label:
+              'Сессий с оценкой',
+          value:
+              '${resilience.sessionsWithWellbeingData}',
+        ),
+      ],
+    );
+  }
+}
+
+class _ProgressDetailRow
+    extends StatelessWidget {
+  final String label;
+  final double value;
+  final String valueText;
+
+  const _ProgressDetailRow({
+    required this.label,
+    required this.value,
+    required this.valueText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    final normalized =
+        value.clamp(0, 100) / 100;
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: theme
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(
+                  fontWeight:
+                      FontWeight
+                          .w600,
+                ),
+              ),
+            ),
+            Text(
+              valueText,
+              style: theme
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(
+                fontWeight:
+                    FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(
+          height: AppSpacing.sm,
+        ),
+        ClipRRect(
+          borderRadius:
+              AppRadius.large,
+          child:
+              LinearProgressIndicator(
+            value: normalized,
+            minHeight: 8,
+            backgroundColor: theme
+                .colorScheme
+                .primary
+                .withOpacity(
+                  0.10,
+                ),
+            color: theme
+                .colorScheme
+                .primary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ============================================================
+// SUMMARY
+// ============================================================
+
+class _SummarySection
+    extends StatelessWidget {
+  final AnalyticsSummaryModel summary;
+
+  const _SummarySection({
+    required this.summary,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final latestDate =
+        _formatDate(
+      summary.latestEntryDate,
+    );
+
+    return AppCard(
+      hasShadow: false,
+      child: Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          const _SectionTitle(
+            title: 'Общая активность',
+            subtitle:
+                'Основные показатели работы с дневником',
+          ),
+          const SizedBox(
+            height: AppSpacing.lg,
+          ),
+          _AnalyticsGrid(
+            children: [
+              _MetricTile(
+                label:
+                    'Всего сессий',
+                value:
+                    '${summary.safeTotalSessions}',
+                icon: Icons
+                    .chat_bubble_outline_rounded,
+              ),
+              _MetricTile(
+                label:
+                    'Завершено',
+                value:
+                    '${summary.safeFinishedSessions}',
+                icon: Icons
+                    .check_circle_outline_rounded,
+              ),
+              _MetricTile(
+                label:
+                    'Записей',
+                value:
+                    '${summary.safeTotalDiaryEntries}',
+                icon: Icons
+                    .menu_book_rounded,
+              ),
+              _MetricTile(
+                label:
+                    'Последняя запись',
+                value: latestDate,
+                icon: Icons
+                    .calendar_today_rounded,
+                compactValue: true,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================
+// DISTORTIONS
+// ============================================================
+
+class _DistortionsSection
+    extends StatelessWidget {
+  final AnalyticsDistortionsResponseModel
+  response;
+
+  const _DistortionsSection({
+    required this.response,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final items = response.items
+        .where(
+          (item) =>
+              item.safeCount > 0,
+        )
+        .toList();
+
+    final maxCount = items.isEmpty
+        ? 1
+        : items
+            .map(
+              (item) =>
+                  item.safeCount,
+            )
+            .reduce(math.max);
+
+    return AppCard(
+      hasShadow: false,
+      child: Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          const _SectionTitle(
+            title:
+                'Когнитивные искажения',
+            subtitle:
+                'Какие мыслительные шаблоны встречались чаще',
+          ),
+          const SizedBox(
+            height: AppSpacing.lg,
+          ),
+          if (items.isEmpty)
+            const _EmptyAnalyticsBlock(
+              icon:
+                  Icons.psychology_alt_outlined,
+              title:
+                  'Пока нет данных',
+              description:
+                  'Искажения появятся после завершённых КПТ-сессий.',
+            )
+          else
+            ...items.take(6).map(
+              (item) {
+                return Padding(
+                  padding:
+                      const EdgeInsets
+                          .only(
+                    bottom:
+                        AppSpacing.md,
+                  ),
+                  child:
+                      _RankedAnalyticsRow(
+                    label:
+                        _formatName(
+                      item.safeName,
+                    ),
+                    count:
+                        item.safeCount,
+                    progress:
+                        item.safeCount /
+                        maxCount,
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================
+// TECHNIQUES
+// ============================================================
+
+class _TechniquesSection
+    extends StatelessWidget {
+  final AnalyticsTechniquesResponseModel
+  response;
+
+  const _TechniquesSection({
+    required this.response,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final items = response.items
+        .where(
+          (item) =>
+              item.safeCount > 0 &&
+              item.safeTechnique
+                      .toUpperCase() !=
+                  'NONE',
+        )
+        .toList();
+
+    final maxCount = items.isEmpty
+        ? 1
+        : items
+            .map(
+              (item) =>
+                  item.safeCount,
+            )
+            .reduce(math.max);
+
+    return AppCard(
+      hasShadow: false,
+      child: Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          const _SectionTitle(
+            title:
+                'Использованные техники',
+            subtitle:
+                'Какие методы применялись в работе с мыслями',
+          ),
+          const SizedBox(
+            height: AppSpacing.lg,
+          ),
+          if (items.isEmpty)
+            const _EmptyAnalyticsBlock(
+              icon:
+                  Icons.auto_awesome_outlined,
+              title:
+                  'Пока нет данных',
+              description:
+                  'Техники появятся после прохождения КПТ-сессий.',
+            )
+          else
+            ...items.take(6).map(
+              (item) {
+                return Padding(
+                  padding:
+                      const EdgeInsets
+                          .only(
+                    bottom:
+                        AppSpacing.md,
+                  ),
+                  child:
+                      _RankedAnalyticsRow(
+                    label:
+                        _formatTechnique(
+                      item.safeTechnique,
+                    ),
+                    count:
+                        item.safeCount,
+                    progress:
+                        item.safeCount /
+                        maxCount,
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================
+// COMMON ANALYTICS WIDGETS
+// ============================================================
+
+class _SectionTitle
+    extends StatelessWidget {
   final String title;
   final String subtitle;
 
@@ -510,17 +1369,31 @@ class _SectionTitle extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
       children: [
         Text(
           title,
-          style: theme.textTheme.titleLarge,
+          style: theme
+              .textTheme.titleLarge
+              ?.copyWith(
+            fontWeight:
+                FontWeight.w800,
+            letterSpacing: -0.4,
+          ),
         ),
-        const SizedBox(height: AppSpacing.xs),
+        const SizedBox(
+          height: AppSpacing.xs,
+        ),
         Text(
           subtitle,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
+          style: theme
+              .textTheme.bodySmall
+              ?.copyWith(
+            color: theme
+                .colorScheme
+                .onSurfaceVariant,
+            height: 1.4,
           ),
         ),
       ],
@@ -528,71 +1401,262 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-class _ProgressItem extends StatelessWidget {
-  final String title;
-  final String? subtitle;
-  final int count;
-  final int maxCount;
+class _AnalyticsGrid
+    extends StatelessWidget {
+  final List<Widget> children;
 
-  const _ProgressItem({
-    required this.title,
-    this.subtitle,
-    required this.count,
-    required this.maxCount,
+  const _AnalyticsGrid({
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (
+        context,
+        constraints,
+      ) {
+        final itemWidth =
+            (constraints.maxWidth -
+                    AppSpacing.md) /
+                2;
+
+        return Wrap(
+          spacing: AppSpacing.md,
+          runSpacing:
+              AppSpacing.md,
+          children: children.map(
+            (child) {
+              return SizedBox(
+                width: itemWidth,
+                child: child,
+              );
+            },
+          ).toList(),
+        );
+      },
+    );
+  }
+}
+
+class _MetricTile
+    extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final bool compactValue;
+
+  const _MetricTile({
+    required this.label,
+    required this.value,
+    required this.icon,
+    this.compactValue = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final safeMax = maxCount <= 0 ? 1 : maxCount;
-    final progress = (count / safeMax).clamp(0.0, 1.0);
+    final isDark =
+        theme.brightness ==
+        Brightness.dark;
+
+    return Container(
+      padding:
+          const EdgeInsets.all(
+        AppSpacing.md,
+      ),
+      decoration: BoxDecoration(
+        color: isDark
+            ? AppColors
+                .darkSurfaceSoft
+                .withOpacity(0.72)
+            : AppColors.white
+                .withOpacity(0.52),
+        borderRadius:
+            AppRadius.large,
+        border: Border.all(
+          color: isDark
+              ? AppColors.darkBorder
+              : AppColors.white
+                  .withOpacity(
+                    0.78,
+                  ),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          _MetricIcon(
+            icon: icon,
+          ),
+          const SizedBox(
+            height: AppSpacing.md,
+          ),
+          Text(
+            value,
+            maxLines: 1,
+            overflow:
+                TextOverflow.ellipsis,
+            style: theme
+                .textTheme
+                .titleLarge
+                ?.copyWith(
+              fontSize:
+                  compactValue
+                  ? 16
+                  : 22,
+              fontWeight:
+                  FontWeight.w800,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: theme
+                .textTheme.bodySmall
+                ?.copyWith(
+              color: theme
+                  .colorScheme
+                  .onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetricIcon
+    extends StatelessWidget {
+  final IconData icon;
+
+  const _MetricIcon({
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final primary =
+        Theme.of(context)
+            .colorScheme
+            .primary;
+
+    return Container(
+      width: 35,
+      height: 35,
+      decoration: BoxDecoration(
+        color: primary
+            .withOpacity(0.11),
+        borderRadius:
+            BorderRadius.circular(13),
+      ),
+      child: Icon(
+        icon,
+        color: primary,
+        size: 18,
+      ),
+    );
+  }
+}
+
+class _RankedAnalyticsRow
+    extends StatelessWidget {
+  final String label;
+  final int count;
+  final double progress;
+
+  const _RankedAnalyticsRow({
+    required this.label,
+    required this.count,
+    required this.progress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
             Expanded(
               child: Text(
-                title,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+                label,
+                style: theme
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(
+                  fontWeight:
+                      FontWeight
+                          .w600,
                 ),
               ),
             ),
-            const SizedBox(width: AppSpacing.sm),
-            Text(
-              count.toString(),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: theme.colorScheme.primary,
+            const SizedBox(
+              width: AppSpacing.md,
+            ),
+            Container(
+              padding:
+                  const EdgeInsets
+                      .symmetric(
+                horizontal:
+                    AppSpacing.sm,
+                vertical: 4,
+              ),
+              decoration:
+                  BoxDecoration(
+                color: theme
+                    .colorScheme
+                    .primary
+                    .withOpacity(
+                      0.10,
+                    ),
+                borderRadius:
+                    AppRadius.medium,
+              ),
+              child: Text(
+                '$count',
+                style: theme
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(
+                  color: theme
+                      .colorScheme
+                      .primary,
+                  fontWeight:
+                      FontWeight
+                          .w800,
+                ),
               ),
             ),
           ],
         ),
-
-        if (subtitle != null) ...[
-          const SizedBox(height: 2),
-          Text(
-            subtitle!,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-
-        const SizedBox(height: AppSpacing.sm),
-
+        const SizedBox(
+          height: AppSpacing.sm,
+        ),
         ClipRRect(
-          borderRadius: AppRadius.medium,
-          child: LinearProgressIndicator(
-            value: progress,
-            minHeight: 8,
-            backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.10),
-            valueColor: AlwaysStoppedAnimation<Color>(
-              theme.colorScheme.primary,
+          borderRadius:
+              AppRadius.large,
+          child:
+              LinearProgressIndicator(
+            value: progress.clamp(
+              0,
+              1,
             ),
+            minHeight: 7,
+            backgroundColor: theme
+                .colorScheme
+                .primary
+                .withOpacity(
+                  0.08,
+                ),
+            color: theme
+                .colorScheme
+                .primary,
           ),
         ),
       ],
@@ -600,11 +1664,61 @@ class _ProgressItem extends StatelessWidget {
   }
 }
 
-class _EmptyAnalyticsState extends StatelessWidget {
-  final String text;
+class _InformationRow
+    extends StatelessWidget {
+  final String label;
+  final String value;
 
-  const _EmptyAnalyticsState({
-    required this.text,
+  const _InformationRow({
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: theme
+                .textTheme.bodyMedium
+                ?.copyWith(
+              color: theme
+                  .colorScheme
+                  .onSurfaceVariant,
+            ),
+          ),
+        ),
+        const SizedBox(
+          width: AppSpacing.md,
+        ),
+        Text(
+          value,
+          style: theme
+              .textTheme.bodyMedium
+              ?.copyWith(
+            fontWeight:
+                FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _EmptyAnalyticsBlock
+    extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String description;
+
+  const _EmptyAnalyticsBlock({
+    required this.icon,
+    required this.title,
+    required this.description,
   });
 
   @override
@@ -613,29 +1727,175 @@ class _EmptyAnalyticsState extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.primary.withValues(alpha: 0.08),
-        borderRadius: AppRadius.large,
+      padding:
+          const EdgeInsets.all(
+        AppSpacing.lg,
       ),
-      child: Row(
+      decoration: BoxDecoration(
+        color: theme
+            .colorScheme
+            .primary
+            .withOpacity(0.06),
+        borderRadius:
+            AppRadius.large,
+        border: Border.all(
+          color: theme
+              .colorScheme
+              .primary
+              .withOpacity(0.08),
+        ),
+      ),
+      child: Column(
         children: [
           Icon(
-            Icons.info_outline_rounded,
-            color: theme.colorScheme.primary,
+            icon,
+            color: theme
+                .colorScheme
+                .primary,
+            size: 28,
+          ),
+          const SizedBox(
+            height: AppSpacing.md,
+          ),
+          Text(
+            title,
+            textAlign:
+                TextAlign.center,
+            style: theme
+                .textTheme
+                .bodyMedium
+                ?.copyWith(
+              fontWeight:
+                  FontWeight.w800,
+            ),
+          ),
+          const SizedBox(
+            height: AppSpacing.xs,
+          ),
+          Text(
+            description,
+            textAlign:
+                TextAlign.center,
+            style: theme
+                .textTheme.bodySmall
+                ?.copyWith(
+              color: theme
+                  .colorScheme
+                  .onSurfaceVariant,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AnalyticsNotice
+    extends StatelessWidget {
+  const _AnalyticsNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return AppCard(
+      hasShadow: false,
+      child: Row(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons
+                .info_outline_rounded,
+            color: theme
+                .colorScheme
+                .primary,
             size: 22,
           ),
-          const SizedBox(width: AppSpacing.md),
+          const SizedBox(
+            width: AppSpacing.md,
+          ),
           Expanded(
             child: Text(
-              text,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+              'Аналитика помогает наблюдать личную динамику, но не является диагнозом или профессиональной психологической оценкой.',
+              style: theme
+                  .textTheme.bodySmall
+                  ?.copyWith(
+                color: theme
+                    .colorScheme
+                    .onSurfaceVariant,
+                height: 1.45,
               ),
             ),
           ),
         ],
       ),
     );
+  }
+}
+
+// ============================================================
+// FORMATTERS
+// ============================================================
+
+String _formatDate(
+  DateTime? value,
+) {
+  if (value == null) {
+    return 'Нет данных';
+  }
+
+  final local = value.toLocal();
+
+  final day = local.day
+      .toString()
+      .padLeft(2, '0');
+
+  final month = local.month
+      .toString()
+      .padLeft(2, '0');
+
+  return '$day.$month.${local.year}';
+}
+
+String _formatName(
+  String value,
+) {
+  final cleaned = value
+      .trim()
+      .replaceAll('_', ' ')
+      .toLowerCase();
+
+  if (cleaned.isEmpty) {
+    return 'Не указано';
+  }
+
+  return cleaned[0].toUpperCase() +
+      cleaned.substring(1);
+}
+
+String _formatTechnique(
+  String value,
+) {
+  switch (
+      value.trim().toUpperCase()) {
+    case 'SOCRATIC_DIALOGUE':
+      return 'Сократический диалог';
+
+    case 'DOWNWARD_ARROW':
+      return 'Нисходящая стрелка';
+
+    case 'REFRAMING':
+      return 'Рефрейминг';
+
+    case 'SUMMARY':
+      return 'Подведение итогов';
+
+    case 'GROUNDING':
+      return 'Заземление';
+
+    default:
+      return _formatName(value);
   }
 }

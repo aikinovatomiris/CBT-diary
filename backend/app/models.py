@@ -259,12 +259,6 @@ class TherapistCertificate(Base):
 
 
 class TherapistFavorite(Base):
-    """
-    Закладка обычного пользователя на профиль терапевта.
-
-    Одна пара user + therapist_profile может существовать
-    в таблице только один раз.
-    """
 
     __tablename__ = "therapist_favorites"
 
@@ -388,6 +382,11 @@ class CBTSession(Base):
         JSON,
         nullable=True,
     )
+    
+    wellbeing_score_after = Column(
+        Integer,
+        nullable=True,
+    )
 
     created_at = Column(
         DateTime,
@@ -495,6 +494,10 @@ class DiaryEntry(Base):
     )
     emotions_after = Column(
         JSON,
+        nullable=True,
+    )
+    wellbeing_score_after = Column(
+        Integer,
         nullable=True,
     )
     cognitive_distortions = Column(

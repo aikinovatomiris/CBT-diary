@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Literal, Optional
 
 from pydantic import (
@@ -27,6 +27,19 @@ TherapistProfileStatus = Literal[
     "pending",
     "approved",
     "rejected",
+]
+
+AnalyticsWellbeingTrend = Literal[
+    "improving",
+    "stable",
+    "declining",
+    "insufficient_data",
+]
+
+AnalyticsDataStatus = Literal[
+    "no_data",
+    "limited",
+    "enough",
 ]
 
 
@@ -121,6 +134,7 @@ class ChangePasswordRequest(BaseModel):
 
 class ChangePasswordResponse(BaseModel):
     message: str
+
 
 class UpdateUserNameRequest(BaseModel):
     name: str = Field(
@@ -385,6 +399,12 @@ class CBTSessionResponse(BaseModel):
 
     emotions_after: Optional[Any] = None
 
+    wellbeing_score_after: Optional[int] = Field(
+        default=None,
+        ge=0,
+        le=100,
+    )
+
     created_at: datetime
     finished_at: Optional[datetime] = None
 
@@ -426,6 +446,13 @@ class DiaryEntryUpdate(BaseModel):
 
     emotions_before: Optional[Any] = None
     emotions_after: Optional[Any] = None
+
+    wellbeing_score_after: Optional[int] = Field(
+        default=None,
+        ge=0,
+        le=100,
+    )
+
     cognitive_distortions: Optional[Any] = None
 
     evidence_for: Optional[str] = None
@@ -448,6 +475,13 @@ class DiaryEntryResponse(BaseModel):
 
     emotions_before: Optional[Any] = None
     emotions_after: Optional[Any] = None
+
+    wellbeing_score_after: Optional[int] = Field(
+        default=None,
+        ge=0,
+        le=100,
+    )
+
     cognitive_distortions: Optional[Any] = None
 
     evidence_for: Optional[str] = None
@@ -490,6 +524,71 @@ class AnalyticsTechniqueItem(BaseModel):
 
 class AnalyticsTechniquesResponse(BaseModel):
     items: list[AnalyticsTechniqueItem]
+
+
+class AnalyticsWellbeingDayItem(BaseModel):
+    date: date
+    day_label: str
+
+    score: Optional[float] = Field(
+        default=None,
+        ge=0,
+        le=100,
+    )
+
+    entries_count: int = Field(
+        ge=0,
+    )
+
+
+class AnalyticsWellbeingWeekResponse(BaseModel):
+    period_start: date
+    period_end: date
+
+    average_score: Optional[float] = Field(
+        default=None,
+        ge=0,
+        le=100,
+    )
+
+    trend: AnalyticsWellbeingTrend
+
+    items: list[
+        AnalyticsWellbeingDayItem
+    ]
+
+
+class AnalyticsResilienceResponse(BaseModel):
+    score: Optional[int] = Field(
+        default=None,
+        ge=0,
+        le=100,
+    )
+
+    completion_score: float = Field(
+        ge=0,
+        le=100,
+    )
+
+    average_wellbeing_score: Optional[float] = Field(
+        default=None,
+        ge=0,
+        le=100,
+    )
+
+    total_sessions: int = Field(
+        ge=0,
+    )
+
+    finished_sessions: int = Field(
+        ge=0,
+    )
+
+    sessions_with_wellbeing_data: int = Field(
+        ge=0,
+    )
+
+    data_status: AnalyticsDataStatus
 
 
 # =========================

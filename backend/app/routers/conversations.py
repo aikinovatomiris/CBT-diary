@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 from fastapi import (
@@ -51,6 +51,69 @@ SHARED_DIARY_MESSAGE_CONTENT = (
     "Пользователь поделился КПТ-записью"
 )
 
+
+# ============================================================
+# DATETIME HELPERS
+# ============================================================
+
+def ensure_utc_datetime(
+    value: datetime | None,
+) -> datetime | None:
+    """
+    В PostgreSQL даты проекта хранятся как naive UTC.
+
+    Перед отправкой во Flutter явно добавляем timezone UTC,
+    чтобы FastAPI возвращал:
+
+        2026-06-18T18:35:00.000000+00:00
+
+    Вместо неоднозначного:
+
+        2026-06-18T18:35:00.000000
+
+    Значение в базе данных при этом не изменяется.
+    """
+
+    if value is None:
+        return None
+
+    if value.tzinfo is None:
+        return value.replace(
+            tzinfo=timezone.utc,
+        )
+
+    return value.astimezone(
+        timezone.utc,
+    )
+
+
+def build_message_response(
+    message: ConversationMessage,
+) -> Dict[str, Any]:
+    """
+    Единый формат сообщения для REST и WebSocket.
+
+    Благодаря этому POST, GET и WebSocket всегда возвращают
+    created_at в одном формате с явным UTC.
+    """
+
+    return {
+        "id": message.id,
+        "conversation_id": message.conversation_id,
+        "sender_id": message.sender_id,
+        "content": message.content,
+        "shared_diary_entry_id": (
+            message.shared_diary_entry_id
+        ),
+        "created_at": ensure_utc_datetime(
+            message.created_at
+        ),
+    }
+
+
+# ============================================================
+# CONVERSATION HELPERS
+# ============================================================
 
 def get_conversation_or_404(
     conversation_id: int,
@@ -308,14 +371,16 @@ def build_conversation_response(
         "therapist_user_id": (
             conversation.therapist_user_id
         ),
-        "created_at": conversation.created_at,
-        "last_message_at": (
+        "created_at": ensure_utc_datetime(
+            conversation.created_at
+        ),
+        "last_message_at": ensure_utc_datetime(
             conversation.last_message_at
         ),
-        "user_last_read_at": (
+        "user_last_read_at": ensure_utc_datetime(
             conversation.user_last_read_at
         ),
-        "therapist_last_read_at": (
+        "therapist_last_read_at": ensure_utc_datetime(
             conversation.therapist_last_read_at
         ),
         "user_name": conversation.user_name,
@@ -350,9 +415,7 @@ def mark_conversation_as_read(
         current_user.id
         == conversation.therapist_user_id
     ):
-        conversation.therapist_last_read_at = (
-            read_at
-        )
+        conversation.therapist_last_read_at = read_at
         return
 
     raise HTTPException(
@@ -382,33 +445,32 @@ def update_conversation_after_new_message(
     )
 
 
+# ============================================================
+# WEBSOCKET HELPERS
+# ============================================================
+
 def build_message_websocket_payload(
     message: ConversationMessage,
 ) -> Dict[str, Any]:
+    message_data = build_message_response(
+        message
+    )
 
-    created_at = message.created_at
+    created_at = message_data.get(
+        "created_at"
+    )
+
+    if isinstance(created_at, datetime):
+        message_data["created_at"] = (
+            created_at.isoformat()
+        )
 
     return {
         "type": "new_message",
         "conversation_id": (
             message.conversation_id
         ),
-        "message": {
-            "id": message.id,
-            "conversation_id": (
-                message.conversation_id
-            ),
-            "sender_id": message.sender_id,
-            "content": message.content,
-            "shared_diary_entry_id": (
-                message.shared_diary_entry_id
-            ),
-            "created_at": (
-                created_at.isoformat()
-                if created_at is not None
-                else None
-            ),
-        },
+        "message": message_data,
     }
 
 
@@ -430,6 +492,10 @@ async def broadcast_new_message(
     )
 
 
+# ============================================================
+# WEBSOCKET
+# ============================================================
+
 @router.websocket(
     "/{conversation_id}/ws",
 )
@@ -439,7 +505,6 @@ async def conversation_websocket(
     token: str = Query(...),
     db: Session = Depends(get_db),
 ):
-
     user_id = decode_access_token_user_id(
         token
     )
@@ -546,6 +611,10 @@ async def conversation_websocket(
             pass
 
 
+# ============================================================
+# POST /conversations
+# ============================================================
+
 @router.post(
     "",
     response_model=ConversationResponse,
@@ -639,6 +708,10 @@ def create_or_get_conversation(
     )
 
 
+# ============================================================
+# GET /conversations
+# ============================================================
+
 @router.get(
     "",
     response_model=List[ConversationResponse],
@@ -704,6 +777,10 @@ def get_my_conversations(
     ]
 
 
+# ============================================================
+# GET /conversations/{conversation_id}/messages
+# ============================================================
+
 @router.get(
     "/{conversation_id}/messages",
     response_model=List[
@@ -740,8 +817,15 @@ def get_conversation_messages(
         .all()
     )
 
-    return messages
+    return [
+        build_message_response(message)
+        for message in messages
+    ]
 
+
+# ============================================================
+# POST /conversations/{conversation_id}/messages
+# ============================================================
 
 @router.post(
     "/{conversation_id}/messages",
@@ -795,8 +879,14 @@ async def send_conversation_message(
 
     await broadcast_new_message(message)
 
-    return message
+    return build_message_response(
+        message
+    )
 
+
+# ============================================================
+# PATCH /conversations/{conversation_id}/read
+# ============================================================
 
 @router.patch(
     "/{conversation_id}/read",
@@ -832,11 +922,17 @@ def mark_conversation_read(
 
     return {
         "conversation_id": conversation.id,
-        "read_at": read_at,
+        "read_at": ensure_utc_datetime(
+            read_at
+        ),
         "unread_count": 0,
         "has_unread": False,
     }
 
+
+# ============================================================
+# POST /conversations/{conversation_id}/share-diary-entry
+# ============================================================
 
 @router.post(
     "/{conversation_id}/share-diary-entry",
@@ -865,10 +961,7 @@ async def share_diary_entry_in_conversation(
         db=db,
     )
 
-    if (
-        conversation.user_id
-        != current_user.id
-    ):
+    if conversation.user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=(
@@ -913,8 +1006,14 @@ async def share_diary_entry_in_conversation(
 
     await broadcast_new_message(message)
 
-    return message
+    return build_message_response(
+        message
+    )
 
+
+# ============================================================
+# GET SHARED DIARY ENTRY
+# ============================================================
 
 @router.get(
     (

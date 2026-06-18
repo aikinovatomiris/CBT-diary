@@ -24,8 +24,9 @@ class ConversationDetailScreen extends StatefulWidget {
   });
 
   @override
-  State<ConversationDetailScreen> createState() =>
-      _ConversationDetailScreenState();
+  State<ConversationDetailScreen> createState() {
+    return _ConversationDetailScreenState();
+  }
 }
 
 class _ConversationDetailScreenState
@@ -137,6 +138,7 @@ class _ConversationDetailScreenState
     try {
       await service.connect();
     } catch (_) {
+      // WebSocket не должен ломать обычную REST-переписку.
     }
   }
 
@@ -153,6 +155,7 @@ class _ConversationDetailScreenState
       return;
     }
 
+    // Собственное сообщение уже добавляется через REST-ответ.
     if (incomingMessage.senderId == currentUserId) {
       return;
     }
@@ -217,7 +220,7 @@ class _ConversationDetailScreenState
       await ConversationService
           .markConversationAsRead(id);
     } catch (_) {
-
+      // Ошибка отметки прочтения не должна закрывать чат.
     }
   }
 
@@ -253,6 +256,7 @@ class _ConversationDetailScreenState
       return;
     }
 
+    //КОСТЫЛЬ!!!
     final optimisticMessage =
         ConversationMessageModel(
       id: null,
@@ -301,8 +305,7 @@ class _ConversationDetailScreenState
             sentMessage.id != null &&
                 updatedMessages.any(
                   (message) =>
-                      message.id ==
-                      sentMessage.id,
+                      message.id == sentMessage.id,
                 );
 
         if (optimisticIndex != -1) {
@@ -311,8 +314,20 @@ class _ConversationDetailScreenState
               optimisticIndex,
             );
           } else {
-            updatedMessages[optimisticIndex] =
-                sentMessage;
+            // Preserve optimistic local timestamp to avoid flicker when
+            // the server response's timezone/formatting leads to a
+            // briefly incorrect displayed time. We replace the message
+            // content/ids from server but keep the optimistic createdAt.
+            final preserved = ConversationMessageModel(
+              id: sentMessage.id,
+              conversationId: sentMessage.conversationId,
+              senderId: sentMessage.senderId,
+              content: sentMessage.content,
+              sharedDiaryEntryId: sentMessage.sharedDiaryEntryId,
+              createdAt: optimisticMessage.createdAt,
+            );
+
+            updatedMessages[optimisticIndex] = preserved;
           }
         } else if (!sentMessageAlreadyExists) {
           updatedMessages.add(
@@ -454,8 +469,9 @@ class _ConversationDetailScreenState
 
         _scrollController.animateTo(
           target,
-          duration:
-              const Duration(milliseconds: 220),
+          duration: const Duration(
+            milliseconds: 220,
+          ),
           curve: Curves.easeOut,
         );
       },
@@ -494,9 +510,11 @@ class _ConversationDetailScreenState
     return FutureBuilder<_ConversationDetailData>(
       future: _future,
       builder: (context, snapshot) {
-        if (snapshot.connectionState ==
+        if (
+            snapshot.connectionState ==
                 ConnectionState.waiting &&
-            _messages.isEmpty) {
+            _messages.isEmpty
+        ) {
           return const Scaffold(
             body: AppLoading(
               text: 'Загрузка переписки...',
@@ -504,8 +522,10 @@ class _ConversationDetailScreenState
           );
         }
 
-        if (snapshot.hasError &&
-            _messages.isEmpty) {
+        if (
+            snapshot.hasError &&
+            _messages.isEmpty
+        ) {
           final error = snapshot.error;
 
           final message = error is ApiException
@@ -658,21 +678,17 @@ class _ConversationDetailContent
                     Expanded(
                       child: messages.isEmpty
                           ? _EmptyMessagesState(
-                              onRefresh:
-                                  onRefresh,
+                              onRefresh: onRefresh,
                             )
                           : RefreshIndicator(
-                              onRefresh:
-                                  onRefresh,
-                              child:
-                                  ListView.builder(
+                              onRefresh: onRefresh,
+                              child: ListView.builder(
                                 controller:
                                     scrollController,
                                 physics:
                                     const AlwaysScrollableScrollPhysics(),
                                 padding:
-                                    const EdgeInsets
-                                        .fromLTRB(
+                                    const EdgeInsets.fromLTRB(
                                   AppSpacing.xl,
                                   AppSpacing.md,
                                   AppSpacing.xl,
@@ -687,33 +703,27 @@ class _ConversationDetailContent
 
                                   final previous =
                                       index > 0
-                                          ? messages[
-                                              index -
-                                                  1]
+                                          ? messages[index - 1]
                                           : null;
 
                                   final showDate =
                                       _shouldShowDate(
-                                    previous:
-                                        previous,
-                                    current:
-                                        message,
+                                    previous: previous,
+                                    current: message,
                                   );
 
                                   return Column(
                                     children: [
                                       if (showDate)
                                         _MessageDateDivider(
-                                          date: message
-                                              .createdAt,
+                                          date:
+                                              message.createdAt,
                                         ),
                                       _MessageBubble(
-                                        message:
-                                            message,
-                                        isMine: message
-                                                .senderId ==
-                                            currentUser
-                                                .id,
+                                        message: message,
+                                        isMine:
+                                            message.senderId ==
+                                                currentUser.id,
                                         isOpeningSharedEntry:
                                             isOpeningSharedEntry,
                                         onOpenSharedDiaryEntry:
@@ -730,8 +740,7 @@ class _ConversationDetailContent
                             ),
                     ),
                     _MessageInput(
-                      controller:
-                          messageController,
+                      controller: messageController,
                       isSending: isSending,
                       onSend: onSend,
                     ),
@@ -753,25 +762,27 @@ class _ConversationDetailContent
       return true;
     }
 
-    final previousDate =
-        previous.createdAt?.toLocal();
+    // Приводим значения к локальному времени перед сравнениями.
+    // Это делает поведение устойчивым, если где-то ранее
+    // дата ещё не была преобразована в локальную зону.
+    final previousDate = previous.createdAt?.toLocal();
+    final currentDate = current.createdAt?.toLocal();
 
-    final currentDate =
-        current.createdAt?.toLocal();
-
-    if (previousDate == null ||
-        currentDate == null) {
+    if (
+        previousDate == null ||
+        currentDate == null
+    ) {
       return previousDate != currentDate;
     }
 
     return previousDate.year != currentDate.year ||
-        previousDate.month !=
-            currentDate.month ||
+        previousDate.month != currentDate.month ||
         previousDate.day != currentDate.day;
   }
 }
 
-class _MessageDateDivider extends StatelessWidget {
+class _MessageDateDivider
+    extends StatelessWidget {
   final DateTime? date;
 
   const _MessageDateDivider({
@@ -818,7 +829,7 @@ class _MessageDateDivider extends StatelessWidget {
     if (value == null) {
       return 'Дата не указана';
     }
-
+    // Убедимся, что работаем с локальным временем.
     final date = value.toLocal();
     final now = DateTime.now();
 
@@ -860,7 +871,9 @@ class _MessageDateDivider extends StatelessWidget {
       'декабря',
     ];
 
-    final month = months[date.month - 1];
+    final month = months[
+      date.month - 1
+    ];
 
     if (date.year == now.year) {
       return '${date.day} $month';
@@ -1020,14 +1033,17 @@ class _MessageBubble extends StatelessWidget {
     if (value == null) {
       return '';
     }
+    // Приводим к локальному времени на всякий случай —
+    // это защищает от случаев, когда значение ещё UTC.
+    final local = value.toLocal();
 
-    final date = value.toLocal();
+    final hour = local.hour
+        .toString()
+        .padLeft(2, '0');
 
-    final hour =
-        date.hour.toString().padLeft(2, '0');
-
-    final minute =
-        date.minute.toString().padLeft(2, '0');
+    final minute = local.minute
+        .toString()
+        .padLeft(2, '0');
 
     return '$hour:$minute';
   }
@@ -1345,8 +1361,8 @@ class _EmptyMessagesState
             hasShadow: false,
             child: Text(
               'Сообщений пока нет. Напишите первое сообщение.',
-              style: theme.textTheme.bodyMedium
-                  ?.copyWith(
+              style:
+                  theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme
                     .onSurfaceVariant,
               ),

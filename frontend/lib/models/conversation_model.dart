@@ -50,16 +50,16 @@ class ConversationModel {
       ),
       createdAt: JsonHelpers.parseDateTime(
         json['created_at'],
-      ),
+      )?.toLocal(),
       lastMessageAt: JsonHelpers.parseDateTime(
         json['last_message_at'],
-      ),
+      )?.toLocal(),
       userLastReadAt: JsonHelpers.parseDateTime(
         json['user_last_read_at'],
-      ),
+      )?.toLocal(),
       therapistLastReadAt: JsonHelpers.parseDateTime(
         json['therapist_last_read_at'],
-      ),
+      )?.toLocal(),
       userName: JsonHelpers.parseString(
         json['user_name'],
       ),
@@ -170,7 +170,7 @@ class ConversationMessageModel {
       ),
       createdAt: JsonHelpers.parseDateTime(
         json['created_at'],
-      ),
+      )?.toLocal(),
     );
   }
 

@@ -23,18 +23,31 @@ import '../../widgets/app_error_view.dart';
 import '../../widgets/app_loading.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({
+    super.key,
+  });
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<HomeScreen> createState() {
+    return _HomeScreenState();
+  }
 }
 
 class _HomeData {
   final UserModel user;
+
   final AnalyticsSummaryModel summary;
+
   final AnalyticsDistortionsResponseModel distortions;
+
   final AnalyticsTechniquesResponseModel techniques;
+
+  final AnalyticsWellbeingWeekModel wellbeingWeek;
+
+  final AnalyticsResilienceModel resilience;
+
   final List<DiaryEntryModel> diaryEntries;
+
   final List<CBTSessionModel> sessions;
 
   const _HomeData({
@@ -42,25 +55,36 @@ class _HomeData {
     required this.summary,
     required this.distortions,
     required this.techniques,
+    required this.wellbeingWeek,
+    required this.resilience,
     required this.diaryEntries,
     required this.sessions,
   });
 
   CBTSessionModel? get activeSession {
-    final activeSessions = sessions.where((session) {
-      return session.status == 'active';
-    }).toList();
+    final activeSessions = sessions.where(
+      (session) {
+        return session.status == 'active';
+      },
+    ).toList();
 
     if (activeSessions.isEmpty) {
       return null;
     }
 
-    activeSessions.sort((a, b) {
-      final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+    activeSessions.sort(
+      (a, b) {
+        final aDate =
+            a.createdAt ??
+            DateTime.fromMillisecondsSinceEpoch(0);
 
-      return bDate.compareTo(aDate);
-    });
+        final bDate =
+            b.createdAt ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+
+        return bDate.compareTo(aDate);
+      },
+    );
 
     return activeSessions.first;
   }
@@ -70,56 +94,82 @@ class _HomeData {
       return null;
     }
 
-    final sortedEntries = [...diaryEntries];
+    final sortedEntries = [
+      ...diaryEntries,
+    ];
 
-    sortedEntries.sort((a, b) {
-      final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+    sortedEntries.sort(
+      (a, b) {
+        final aDate =
+            a.createdAt ??
+            DateTime.fromMillisecondsSinceEpoch(0);
 
-      return bDate.compareTo(aDate);
-    });
+        final bDate =
+            b.createdAt ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+
+        return bDate.compareTo(aDate);
+      },
+    );
 
     return sortedEntries.first;
   }
 
   AnalyticsDistortionModel? get topDistortion {
-    final validItems = distortions.items.where((item) {
-      final name = item.name;
-      final count = item.count ?? 0;
+    final validItems = distortions.items.where(
+      (item) {
+        final name = item.name;
+        final count = item.count ?? 0;
 
-      return name != null && name.trim().isNotEmpty && count > 0;
-    }).toList();
+        return name != null &&
+            name.trim().isNotEmpty &&
+            count > 0;
+      },
+    ).toList();
 
     if (validItems.isEmpty) {
       return null;
     }
 
-    validItems.sort((a, b) {
-      return (b.count ?? 0).compareTo(a.count ?? 0);
-    });
+    validItems.sort(
+      (a, b) {
+        return (b.count ?? 0).compareTo(
+          a.count ?? 0,
+        );
+      },
+    );
 
     return validItems.first;
   }
 
   AnalyticsTechniqueModel? get topTechnique {
-    final validItems = techniques.items.where((item) {
-      final technique = item.technique;
-      final count = item.count ?? 0;
+    final validItems = techniques.items.where(
+      (item) {
+        final technique = item.technique;
+        final count = item.count ?? 0;
 
-      if (technique == null || technique.trim().isEmpty || count <= 0) {
-        return false;
-      }
+        if (technique == null ||
+            technique.trim().isEmpty ||
+            count <= 0) {
+          return false;
+        }
 
-      return technique.trim().toUpperCase() != 'NONE';
-    }).toList();
+        return technique.trim().toUpperCase() !=
+            'NONE';
+      },
+    ).toList();
 
     if (validItems.isEmpty) {
       return null;
     }
 
-    validItems.sort((a, b) {
-      return (b.count ?? 0).compareTo(a.count ?? 0);
-    });
+    validItems.sort(
+      (a, b) {
+        return (b.count ?? 0).compareTo(
+          a.count ?? 0,
+        );
+      },
+    );
 
     return validItems.first;
   }
@@ -127,27 +177,44 @@ class _HomeData {
 
 class _HomeScreenState extends State<HomeScreen> {
   late Future<_HomeData> _homeFuture;
+
   bool _isCreatingSession = false;
 
   @override
   void initState() {
     super.initState();
+
     _homeFuture = _loadHomeData();
   }
 
   Future<_HomeData> _loadHomeData() async {
-    final user = await AuthService.me();
-    final summary = await AnalyticsService.getSummary();
-    final distortions = await AnalyticsService.getDistortions();
-    final techniques = await AnalyticsService.getTechniques();
-    final diaryEntries = await DiaryService.getEntries();
-    final sessions = await CbtService.getSessions();
+    final results = await Future.wait<dynamic>(
+      [
+        AuthService.me(),
+        AnalyticsService.getDetails(),
+        DiaryService.getEntries(),
+        CbtService.getSessions(),
+      ],
+    );
+
+    final user = results[0] as UserModel;
+
+    final analytics =
+        results[1] as AnalyticsDetailsData;
+
+    final diaryEntries =
+        results[2] as List<DiaryEntryModel>;
+
+    final sessions =
+        results[3] as List<CBTSessionModel>;
 
     return _HomeData(
       user: user,
-      summary: summary,
-      distortions: distortions,
-      techniques: techniques,
+      summary: analytics.summary,
+      distortions: analytics.distortions,
+      techniques: analytics.techniques,
+      wellbeingWeek: analytics.wellbeingWeek,
+      resilience: analytics.resilience,
       diaryEntries: diaryEntries,
       sessions: sessions,
     );
@@ -162,31 +229,49 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _createSession() async {
-    if (_isCreatingSession) return;
+    if (_isCreatingSession) {
+      return;
+    }
 
     setState(() {
       _isCreatingSession = true;
     });
 
     try {
-      final session = await CbtService.createSession();
+      final session =
+          await CbtService.createSession();
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       final sessionId = session.id;
 
       if (sessionId == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Сервер не вернул ID новой сессии.'),
+            content: Text(
+              'Сервер не вернул ID новой сессии.',
+            ),
           ),
         );
+
         return;
       }
 
-      context.push('${AppRoutes.chat}?session_id=$sessionId');
+      await context.push(
+        '${AppRoutes.chat}?session_id=$sessionId',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      await _refresh();
     } on ApiException catch (error) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -194,11 +279,15 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Не удалось создать новую сессию.'),
+          content: Text(
+            'Не удалось создать новую сессию.',
+          ),
         ),
       );
     } finally {
@@ -210,34 +299,72 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _continueSession(CBTSessionModel session) {
+  Future<void> _continueSession(
+    CBTSessionModel session,
+  ) async {
     final sessionId = session.id;
 
     if (sessionId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('У активной сессии нет ID.'),
+          content: Text(
+            'У активной сессии нет ID.',
+          ),
         ),
       );
+
       return;
     }
 
-    context.push('${AppRoutes.chat}?session_id=$sessionId');
+    await context.push(
+      '${AppRoutes.chat}?session_id=$sessionId',
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    await _refresh();
+  }
+
+  Future<void> _openAnalytics() async {
+    await context.push(
+      AppRoutes.analytics,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    await _refresh();
   }
 
   String _formatDate(DateTime? date) {
-    if (date == null) return 'Нет данных';
+    if (date == null) {
+      return 'Нет данных';
+    }
 
     final localDate = date.toLocal();
-    final day = localDate.day.toString().padLeft(2, '0');
-    final month = localDate.month.toString().padLeft(2, '0');
+
+    final day = localDate.day
+        .toString()
+        .padLeft(2, '0');
+
+    final month = localDate.month
+        .toString()
+        .padLeft(2, '0');
+
     final year = localDate.year.toString();
 
     return '$day.$month.$year';
   }
 
-  String _safeText(String? value, {String fallback = 'Не заполнено'}) {
-    if (value == null || value.trim().isEmpty) {
+  String _safeText(
+    String? value, {
+    String fallback = 'Не заполнено',
+  }) {
+    if (value == null ||
+        value.trim().isEmpty) {
       return fallback;
     }
 
@@ -249,7 +376,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return FutureBuilder<_HomeData>(
       future: _homeFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState ==
+            ConnectionState.waiting) {
           return const Scaffold(
             body: AppLoading(
               text: 'Загрузка главной...',
@@ -259,6 +387,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
         if (snapshot.hasError) {
           final error = snapshot.error;
+
           final message = error is ApiException
               ? error.message
               : 'Не удалось загрузить главный экран.';
@@ -276,7 +405,8 @@ class _HomeScreenState extends State<HomeScreen> {
         if (data == null) {
           return Scaffold(
             body: AppErrorView(
-              message: 'Не удалось получить данные главного экрана.',
+              message:
+                  'Не удалось получить данные главного экрана.',
               onRetry: _refresh,
             ),
           );
@@ -288,6 +418,7 @@ class _HomeScreenState extends State<HomeScreen> {
           onRefresh: _refresh,
           onCreateSession: _createSession,
           onContinueSession: _continueSession,
+          onOpenAnalytics: _openAnalytics,
           formatDate: _formatDate,
           safeText: _safeText,
         );
@@ -298,12 +429,25 @@ class _HomeScreenState extends State<HomeScreen> {
 
 class _HomeContent extends StatelessWidget {
   final _HomeData data;
+
   final bool isCreatingSession;
+
   final Future<void> Function() onRefresh;
+
   final VoidCallback onCreateSession;
-  final ValueChanged<CBTSessionModel> onContinueSession;
+
+  final ValueChanged<CBTSessionModel>
+  onContinueSession;
+
+  final VoidCallback onOpenAnalytics;
+
   final String Function(DateTime?) formatDate;
-  final String Function(String?, {String fallback}) safeText;
+
+  final String Function(
+    String?, {
+    String fallback,
+  })
+  safeText;
 
   const _HomeContent({
     required this.data,
@@ -311,6 +455,7 @@ class _HomeContent extends StatelessWidget {
     required this.onRefresh,
     required this.onCreateSession,
     required this.onContinueSession,
+    required this.onOpenAnalytics,
     required this.formatDate,
     required this.safeText,
   });
@@ -325,7 +470,6 @@ class _HomeContent extends StatelessWidget {
     );
 
     final activeSession = data.activeSession;
-    final latestEntry = data.latestEntry;
 
     return Scaffold(
       appBar: AppBar(
@@ -334,18 +478,23 @@ class _HomeContent extends StatelessWidget {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final isWide = constraints.maxWidth > 650;
+            final isWide =
+                constraints.maxWidth > 650;
 
             return Center(
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxWidth: isWide ? 620 : double.infinity,
+                  maxWidth: isWide
+                      ? 620
+                      : double.infinity,
                 ),
                 child: RefreshIndicator(
                   onRefresh: onRefresh,
                   child: ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(
+                    physics:
+                        const AlwaysScrollableScrollPhysics(),
+                    padding:
+                        const EdgeInsets.fromLTRB(
                       AppSpacing.xl,
                       AppSpacing.xl,
                       AppSpacing.xl,
@@ -354,52 +503,54 @@ class _HomeContent extends StatelessWidget {
                     children: [
                       Text(
                         'Привет, $userName',
-                        textAlign: TextAlign.left,
-                        style: theme.textTheme.headlineMedium?.copyWith(
+                        style: theme
+                            .textTheme
+                            .headlineMedium
+                            ?.copyWith(
                           letterSpacing: -0.7,
                         ),
                       ),
-
-                      const SizedBox(height: AppSpacing.xxl),
-                      
+                      const SizedBox(
+                        height: AppSpacing.xxl,
+                      ),
                       _LottieSessionOrb(
-                        isLoading: isCreatingSession,
+                        isLoading:
+                            isCreatingSession,
                         onTap: onCreateSession,
                       ),
-
-                      const SizedBox(height: AppSpacing.xl),
-
-                      _WeeklyDiaryActivity(
-                        entries: data.diaryEntries,
+                      const SizedBox(
+                        height: AppSpacing.xl,
                       ),
-
-                      if (activeSession != null) ...[
-                        const SizedBox(height: AppSpacing.xxl),
+                      _WeeklyDiaryActivity(
+                        entries:
+                            data.diaryEntries,
+                      ),
+                      if (activeSession !=
+                          null) ...[
+                        const SizedBox(
+                          height:
+                              AppSpacing.xxl,
+                        ),
                         _ContinueSessionCard(
-                          session: activeSession,
-                          onTap: () => onContinueSession(activeSession),
-                          formatDate: formatDate,
+                          session:
+                              activeSession,
+                          onTap: () {
+                            onContinueSession(
+                              activeSession,
+                            );
+                          },
+                          formatDate:
+                              formatDate,
                           safeText: safeText,
                         ),
                       ],
-
-                      const SizedBox(height: AppSpacing.xxl),
-
-                      Text(
-                        'Аналитика',
-                        textAlign: TextAlign.left,
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.4,
-                        ),
+                      const SizedBox(
+                        height: AppSpacing.xxl,
                       ),
-
-                      const SizedBox(height: AppSpacing.md),
-
-                      _AnalyticsCard(
+                      _AnalyticsOverviewCard(
                         data: data,
-                        latestEntry: latestEntry,
-                        formatDate: formatDate,
+                        onTap:
+                            onOpenAnalytics,
                       ),
                     ],
                   ),
@@ -413,6 +564,9 @@ class _HomeContent extends StatelessWidget {
   }
 }
 
+// ============================================================
+// SESSION ORB
+// ============================================================
 
 class _LottieSessionOrb extends StatelessWidget {
   final bool isLoading;
@@ -426,14 +580,19 @@ class _LottieSessionOrb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+
+    final isDark =
+        theme.brightness ==
+        Brightness.dark;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // На телефоне сфера занимает доступную ширину, но не становится
-        // слишком большой на планшете или в браузере.
-        final availableWidth = constraints.maxWidth;
-        final orbSize = availableWidth.clamp(260.0, 380.0).toDouble();
+        final availableWidth =
+            constraints.maxWidth;
+
+        final orbSize = availableWidth
+            .clamp(260.0, 380.0)
+            .toDouble();
 
         return Center(
           child: Semantics(
@@ -442,13 +601,16 @@ class _LottieSessionOrb extends StatelessWidget {
                 ? 'Создание КПТ-сессии'
                 : 'Начать новую КПТ-сессию',
             child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: isLoading ? null : onTap,
+              behavior:
+                  HitTestBehavior.opaque,
+              onTap:
+                  isLoading ? null : onTap,
               child: SizedBox(
                 width: orbSize,
                 height: orbSize,
                 child: Stack(
-                  alignment: Alignment.center,
+                  alignment:
+                      Alignment.center,
                   children: [
                     Positioned.fill(
                       child: IgnorePointer(
@@ -457,84 +619,143 @@ class _LottieSessionOrb extends StatelessWidget {
                           fit: BoxFit.contain,
                           repeat: true,
                           animate: true,
-                          frameRate: FrameRate.max,
+                          frameRate:
+                              FrameRate.max,
                         ),
                       ),
                     ),
-
-                    // Небольшое затемнение/осветление под текстом помогает
-                    // надписям оставаться читаемыми на яркой анимации.
                     IgnorePointer(
                       child: Container(
                         width: orbSize * 0.58,
                         height: orbSize * 0.58,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          gradient: RadialGradient(
+                          gradient:
+                              RadialGradient(
                             colors: isDark
                                 ? [
-                                    const Color(0xFF080B22).withOpacity(0.42),
-                                    const Color(0xFF080B22).withOpacity(0.12),
-                                    Colors.transparent,
+                                    const Color(
+                                      0xFF080B22,
+                                    ).withOpacity(
+                                      0.42,
+                                    ),
+                                    const Color(
+                                      0xFF080B22,
+                                    ).withOpacity(
+                                      0.12,
+                                    ),
+                                    Colors
+                                        .transparent,
                                   ]
                                 : [
-                                    Colors.white.withOpacity(0.58),
-                                    Colors.white.withOpacity(0.20),
-                                    Colors.transparent,
+                                    Colors.white
+                                        .withOpacity(
+                                      0.58,
+                                    ),
+                                    Colors.white
+                                        .withOpacity(
+                                      0.20,
+                                    ),
+                                    Colors
+                                        .transparent,
                                   ],
-                            stops: const [0.0, 0.62, 1.0],
+                            stops: const [
+                              0.0,
+                              0.62,
+                              1.0,
+                            ],
                           ),
                         ),
                       ),
                     ),
-
                     Column(
-                      mainAxisSize: MainAxisSize.min,
+                      mainAxisSize:
+                          MainAxisSize.min,
                       children: [
                         Text(
                           'КПТ-сессия',
-                          textAlign: TextAlign.center,
+                          textAlign:
+                              TextAlign.center,
                           style: TextStyle(
-                            fontSize: orbSize * 0.074,
-                            fontWeight: FontWeight.w700,
+                            fontSize:
+                                orbSize *
+                                0.074,
+                            fontWeight:
+                                FontWeight.w700,
                             color: isDark
                                 ? Colors.white
-                                : const Color(0xFF1A1A2E),
-                            letterSpacing: -0.5,
+                                : const Color(
+                                    0xFF1A1A2E,
+                                  ),
+                            letterSpacing:
+                                -0.5,
                             shadows: isDark
                                 ? [
                                     Shadow(
-                                      color: const Color(0xFF3B82FF)
-                                          .withOpacity(0.60),
-                                      blurRadius: 20,
+                                      color:
+                                          const Color(
+                                            0xFF3B82FF,
+                                          ).withOpacity(
+                                            0.60,
+                                          ),
+                                      blurRadius:
+                                          20,
                                     ),
                                   ]
                                 : [
                                     Shadow(
-                                      color: const Color(0xFF8A5CFF)
-                                          .withOpacity(0.30),
-                                      blurRadius: 12,
+                                      color:
+                                          const Color(
+                                            0xFF8A5CFF,
+                                          ).withOpacity(
+                                            0.30,
+                                          ),
+                                      blurRadius:
+                                          12,
                                     ),
                                   ],
                           ),
                         ),
-                        SizedBox(height: orbSize * 0.018),
+                        SizedBox(
+                          height:
+                              orbSize *
+                              0.018,
+                        ),
                         Text(
-                          isLoading ? 'Создаём сессию…' : 'Начать сессию',
-                          textAlign: TextAlign.center,
+                          isLoading
+                              ? 'Создаём сессию…'
+                              : 'Начать сессию',
+                          textAlign:
+                              TextAlign.center,
                           style: TextStyle(
-                            fontSize: orbSize * 0.041,
-                            fontWeight: FontWeight.w500,
+                            fontSize:
+                                orbSize *
+                                0.041,
+                            fontWeight:
+                                FontWeight.w500,
                             color: isDark
-                                ? Colors.white.withOpacity(0.72)
-                                : const Color(0xFF5F6472),
-                            letterSpacing: 0.1,
+                                ? Colors.white
+                                    .withOpacity(
+                                      0.72,
+                                    )
+                                : const Color(
+                                    0xFF5F6472,
+                                  ),
+                            letterSpacing:
+                                0.1,
                           ),
                         ),
-                        SizedBox(height: orbSize * 0.055),
+                        SizedBox(
+                          height:
+                              orbSize *
+                              0.055,
+                        ),
                         _LottieStartButton(
-                          size: orbSize * 0.15,
-                          isLoading: isLoading,
+                          size:
+                              orbSize *
+                              0.15,
+                          isLoading:
+                              isLoading,
                           isDark: isDark,
                           onPressed: onTap,
                         ),
@@ -551,7 +772,8 @@ class _LottieSessionOrb extends StatelessWidget {
   }
 }
 
-class _LottieStartButton extends StatelessWidget {
+class _LottieStartButton
+    extends StatelessWidget {
   final double size;
   final bool isLoading;
   final bool isDark;
@@ -566,31 +788,53 @@ class _LottieStartButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
+    final primary =
+        Theme.of(context)
+            .colorScheme
+            .primary;
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: isLoading ? null : onPressed,
+        customBorder:
+            const CircleBorder(),
+        onTap:
+            isLoading
+                ? null
+                : onPressed,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
+          duration:
+              const Duration(
+            milliseconds: 180,
+          ),
           width: size,
           height: size,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: isDark
-                ? Colors.white.withOpacity(0.94)
-                : Colors.white.withOpacity(0.90),
+            color: Colors.white
+                .withOpacity(
+              isDark ? 0.94 : 0.90,
+            ),
             border: Border.all(
               color: isDark
-                  ? Colors.white.withOpacity(0.80)
-                  : primary.withOpacity(0.20),
+                  ? Colors.white
+                      .withOpacity(
+                        0.80,
+                      )
+                  : primary
+                      .withOpacity(
+                        0.20,
+                      ),
               width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: primary.withOpacity(isDark ? 0.38 : 0.20),
+                color: primary
+                    .withOpacity(
+                  isDark
+                      ? 0.38
+                      : 0.20,
+                ),
                 blurRadius: 22,
                 spreadRadius: 1,
               ),
@@ -599,16 +843,21 @@ class _LottieStartButton extends StatelessWidget {
           child: Center(
             child: isLoading
                 ? SizedBox(
-                    width: size * 0.36,
-                    height: size * 0.36,
-                    child: CircularProgressIndicator(
+                    width:
+                        size * 0.36,
+                    height:
+                        size * 0.36,
+                    child:
+                        CircularProgressIndicator(
                       strokeWidth: 2.4,
                       color: primary,
                     ),
                   )
                 : Icon(
-                    Icons.arrow_forward_rounded,
-                    size: size * 0.46,
+                    Icons
+                        .arrow_forward_rounded,
+                    size:
+                        size * 0.46,
                     color: primary,
                   ),
           ),
@@ -618,7 +867,12 @@ class _LottieStartButton extends StatelessWidget {
   }
 }
 
-class _WeeklyDiaryActivity extends StatelessWidget {
+// ============================================================
+// WEEKLY DIARY ACTIVITY
+// ============================================================
+
+class _WeeklyDiaryActivity
+    extends StatelessWidget {
   final List<DiaryEntryModel> entries;
 
   const _WeeklyDiaryActivity({
@@ -628,25 +882,54 @@ class _WeeklyDiaryActivity extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+
+    final isDark =
+        theme.brightness ==
+        Brightness.dark;
 
     final today = DateTime.now();
-    final todayDate = DateTime(today.year, today.month, today.day);
 
-    final monday = todayDate.subtract(
-      Duration(days: todayDate.weekday - DateTime.monday),
+    final todayDate = DateTime(
+      today.year,
+      today.month,
+      today.day,
     );
 
-    final weekDays = List.generate(7, (index) {
-      return monday.add(Duration(days: index));
-    });
+    final monday = todayDate.subtract(
+      Duration(
+        days:
+            todayDate.weekday -
+            DateTime.monday,
+      ),
+    );
+
+    final weekDays = List.generate(
+      7,
+      (index) {
+        return monday.add(
+          Duration(days: index),
+        );
+      },
+    );
 
     final activeDates = entries
-        .where((entry) => entry.createdAt != null)
-        .map((entry) {
-          final localDate = entry.createdAt!.toLocal();
-          return DateTime(localDate.year, localDate.month, localDate.day);
-        })
+        .where(
+          (entry) =>
+              entry.createdAt != null,
+        )
+        .map(
+          (entry) {
+            final localDate =
+                entry.createdAt!
+                    .toLocal();
+
+            return DateTime(
+              localDate.year,
+              localDate.month,
+              localDate.day,
+            );
+          },
+        )
         .toList();
 
     final cardBackground = isDark
@@ -658,40 +941,73 @@ class _WeeklyDiaryActivity extends StatelessWidget {
         : AppColors.lightBorder;
 
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding:
+          const EdgeInsets.all(
+        AppSpacing.lg,
+      ),
       decoration: BoxDecoration(
         color: cardBackground,
-        borderRadius: AppRadius.extraLarge,
+        borderRadius:
+            AppRadius.extraLarge,
         border: Border.all(
           color: borderColor,
           width: 1,
         ),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
         children: [
           Row(
-            children: List.generate(weekDays.length, (index) {
-              final day = weekDays[index];
-              final hasEntry = activeDates.any((date) {
-                return _isSameDate(date, day);
-              });
-              final isToday = _isSameDate(day, todayDate);
+            children: List.generate(
+              weekDays.length,
+              (index) {
+                final day =
+                    weekDays[index];
 
-              return Expanded(
-                child: _WeekDayIndicator(
-                  label: _weekdayLabel(index),
-                  hasEntry: hasEntry,
-                  isToday: isToday,
-                ),
-              );
-            }),
+                final hasEntry =
+                    activeDates.any(
+                  (date) {
+                    return _isSameDate(
+                      date,
+                      day,
+                    );
+                  },
+                );
+
+                final isToday =
+                    _isSameDate(
+                  day,
+                  todayDate,
+                );
+
+                return Expanded(
+                  child:
+                      _WeekDayIndicator(
+                    label:
+                        _weekdayLabel(
+                      index,
+                    ),
+                    hasEntry:
+                        hasEntry,
+                    isToday:
+                        isToday,
+                  ),
+                );
+              },
+            ),
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(
+            height: AppSpacing.md,
+          ),
           Text(
             'Дни с записями в дневнике',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+            style: theme
+                .textTheme.bodySmall
+                ?.copyWith(
+              color: theme
+                  .colorScheme
+                  .onSurfaceVariant,
             ),
           ),
         ],
@@ -699,13 +1015,25 @@ class _WeeklyDiaryActivity extends StatelessWidget {
     );
   }
 
-  static String _weekdayLabel(int index) {
-    const labels = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+  static String _weekdayLabel(
+    int index,
+  ) {
+    const labels = [
+      'Пн',
+      'Вт',
+      'Ср',
+      'Чт',
+      'Пт',
+      'Сб',
+      'Вс',
+    ];
+
     return labels[index];
   }
 }
 
-class _WeekDayIndicator extends StatelessWidget {
+class _WeekDayIndicator
+    extends StatelessWidget {
   final String label;
   final bool hasEntry;
   final bool isToday;
@@ -719,24 +1047,35 @@ class _WeekDayIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
-    final primary = theme.colorScheme.primary;
+    final isDark =
+        theme.brightness ==
+        Brightness.dark;
+
+    final primary =
+        theme.colorScheme.primary;
 
     final emptyBackground = isDark
-        ? AppColors.darkSurfaceSoft.withOpacity(0.52)
-        : AppColors.white.withOpacity(0.58);
+        ? AppColors.darkSurfaceSoft
+            .withOpacity(0.52)
+        : AppColors.white
+            .withOpacity(0.58);
 
     final emptyBorder = isDark
         ? AppColors.darkBorder
-        : AppColors.white.withOpacity(0.82);
+        : AppColors.white
+            .withOpacity(0.82);
 
-    final circleColor = hasEntry ? primary : emptyBackground;
+    final circleColor = hasEntry
+        ? primary
+        : emptyBackground;
 
     final borderColor = isToday
         ? primary
         : hasEntry
-            ? primary.withOpacity(0.36)
+            ? primary.withOpacity(
+                0.36,
+              )
             : emptyBorder;
 
     final textColor = hasEntry
@@ -747,38 +1086,59 @@ class _WeekDayIndicator extends StatelessWidget {
 
     final labelColor = isToday
         ? primary
-        : theme.colorScheme.onSurfaceVariant;
+        : theme
+            .colorScheme
+            .onSurfaceVariant;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           label,
-          style: theme.textTheme.labelSmall?.copyWith(
+          style: theme
+              .textTheme.labelSmall
+              ?.copyWith(
             color: labelColor,
-            fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
-            letterSpacing: -0.1,
+            fontWeight: isToday
+                ? FontWeight.w700
+                : FontWeight.w500,
           ),
         ),
-        const SizedBox(height: AppSpacing.sm),
+        const SizedBox(
+          height: AppSpacing.sm,
+        ),
         AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
-          width: isToday ? 36 : 32,
-          height: isToday ? 36 : 32,
+          duration:
+              const Duration(
+            milliseconds: 180,
+          ),
+          width:
+              isToday ? 36 : 32,
+          height:
+              isToday ? 36 : 32,
           decoration: BoxDecoration(
             color: circleColor,
             shape: BoxShape.circle,
             border: Border.all(
               color: borderColor,
-              width: isToday ? 1.8 : 1,
+              width:
+                  isToday ? 1.8 : 1,
             ),
             boxShadow: hasEntry
                 ? [
                     BoxShadow(
-                      color: primary.withOpacity(isDark ? 0.28 : 0.18),
+                      color: primary
+                          .withOpacity(
+                        isDark
+                            ? 0.28
+                            : 0.18,
+                      ),
                       blurRadius: 12,
-                      offset: const Offset(0, 4),
+                      offset:
+                          const Offset(
+                        0,
+                        4,
+                      ),
                     ),
                   ]
                 : null,
@@ -786,16 +1146,34 @@ class _WeekDayIndicator extends StatelessWidget {
           child: Center(
             child: hasEntry
                 ? Icon(
-                    Icons.check_rounded,
-                    size: isToday ? 18 : 16,
-                    color: textColor,
+                    Icons
+                        .check_rounded,
+                    size:
+                        isToday
+                            ? 18
+                            : 16,
+                    color:
+                        textColor,
                   )
                 : Container(
-                    width: isToday ? 5 : 4,
-                    height: isToday ? 5 : 4,
-                    decoration: BoxDecoration(
-                      color: textColor.withOpacity(isToday ? 0.9 : 0.45),
-                      shape: BoxShape.circle,
+                    width:
+                        isToday
+                            ? 5
+                            : 4,
+                    height:
+                        isToday
+                            ? 5
+                            : 4,
+                    decoration:
+                        BoxDecoration(
+                      color: textColor
+                          .withOpacity(
+                        isToday
+                            ? 0.9
+                            : 0.45,
+                      ),
+                      shape:
+                          BoxShape.circle,
                     ),
                   ),
           ),
@@ -805,11 +1183,24 @@ class _WeekDayIndicator extends StatelessWidget {
   }
 }
 
-class _ContinueSessionCard extends StatelessWidget {
+// ============================================================
+// ACTIVE SESSION
+// ============================================================
+
+class _ContinueSessionCard
+    extends StatelessWidget {
   final CBTSessionModel session;
+
   final VoidCallback onTap;
-  final String Function(DateTime?) formatDate;
-  final String Function(String?, {String fallback}) safeText;
+
+  final String Function(DateTime?)
+  formatDate;
+
+  final String Function(
+    String?, {
+    String fallback,
+  })
+  safeText;
 
   const _ContinueSessionCard({
     required this.session,
@@ -831,44 +1222,61 @@ class _ContinueSessionCard extends StatelessWidget {
       hasShadow: false,
       onTap: onTap,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               _SoftIconBox(
-                icon: Icons.auto_awesome_rounded,
-                color: theme.colorScheme.primary,
+                icon: Icons
+                    .auto_awesome_rounded,
+                color: theme
+                    .colorScheme
+                    .primary,
               ),
-              const SizedBox(width: AppSpacing.md),
+              const SizedBox(
+                width: AppSpacing.md,
+              ),
               Expanded(
                 child: Text(
                   'Продолжить сессию',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.35,
+                  style: theme
+                      .textTheme
+                      .titleLarge
+                      ?.copyWith(
+                    fontWeight:
+                        FontWeight.w700,
+                    letterSpacing:
+                        -0.35,
                   ),
                 ),
               ),
             ],
           ),
-
-          const SizedBox(height: AppSpacing.lg),
-
+          const SizedBox(
+            height: AppSpacing.lg,
+          ),
           _SmallInfoRow(
             label: 'Текущий шаг',
             value: currentStep,
           ),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(
+            height: AppSpacing.sm,
+          ),
           _SmallInfoRow(
             label: 'Создана',
-            value: formatDate(session.createdAt),
+            value: formatDate(
+              session.createdAt,
+            ),
           ),
-
-          const SizedBox(height: AppSpacing.lg),
-
+          const SizedBox(
+            height: AppSpacing.lg,
+          ),
           AppButton(
             text: 'Продолжить',
-            variant: AppButtonVariant.secondary,
+            variant:
+                AppButtonVariant
+                    .secondary,
             onPressed: onTap,
           ),
         ],
@@ -877,211 +1285,169 @@ class _ContinueSessionCard extends StatelessWidget {
   }
 }
 
-class _AnalyticsCard extends StatelessWidget {
-  final _HomeData data;
-  final DiaryEntryModel? latestEntry;
-  final String Function(DateTime?) formatDate;
+// ============================================================
+// HOME ANALYTICS OVERVIEW
+// ============================================================
 
-  const _AnalyticsCard({
+class _AnalyticsOverviewCard
+    extends StatelessWidget {
+  final _HomeData data;
+  final VoidCallback onTap;
+
+  const _AnalyticsOverviewCard({
     required this.data,
-    required this.latestEntry,
-    required this.formatDate,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     final summary = data.summary;
 
-    final topDistortion = data.topDistortion;
-    final topTechnique = data.topTechnique;
+    final totalSessions =
+        summary.totalSessions ??
+        data.sessions.length;
 
-    final totalSessions = summary.totalSessions ?? data.sessions.length;
-    final finishedSessions = summary.finishedSessions ?? 0;
-    final totalDiaryEntries =
-        summary.totalDiaryEntries ?? data.diaryEntries.length;
+    final totalEntries =
+        summary.totalDiaryEntries ??
+        data.diaryEntries.length;
 
-    final latestEntryDate = summary.latestEntryDate ?? latestEntry?.createdAt;
+    final techniquesCount =
+        data.techniques.items
+            .where(
+              (item) =>
+                  (item.count ?? 0) > 0,
+            )
+            .length;
+
 
     return AppCard(
       hasShadow: false,
+      onTap: onTap,
+      padding: EdgeInsets.zero,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
         children: [
-          _AnalyticsGrid(
-            children: [
-              _AnalyticsTile(
-                label: 'Всего сессий',
-                value: '$totalSessions',
-                icon: Icons.chat_bubble_outline_rounded,
-              ),
-              _AnalyticsTile(
-                label: 'Завершено',
-                value: '$finishedSessions',
-                icon: Icons.check_circle_outline_rounded,
-              ),
-              _AnalyticsTile(
-                label: 'Записей',
-                value: '$totalDiaryEntries',
-                icon: Icons.menu_book_rounded,
-              ),
-              _AnalyticsTile(
-                label: 'Последняя запись',
-                value: formatDate(latestEntryDate),
-                icon: Icons.calendar_today_rounded,
-                isDate: true,
-              ),
-            ],
-          ),
-
-          const SizedBox(height: AppSpacing.lg),
-
-          _InsightRow(
-            label: 'Частое искажение',
-            value: _formatAnalyticsName(topDistortion?.name),
-            count: topDistortion?.count,
-          ),
-
-          const SizedBox(height: AppSpacing.md),
-
-          _InsightRow(
-            label: 'Частая техника',
-            value: _formatTechniqueName(topTechnique?.technique),
-            count: topTechnique?.count,
-          ),
-        ],
-      ),
-    );
-  }
-
-  static String _formatAnalyticsName(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Нет данных';
-    }
-
-    final cleaned = value.trim().replaceAll('_', ' ').toLowerCase();
-
-    if (cleaned.isEmpty) {
-      return 'Нет данных';
-    }
-
-    return cleaned[0].toUpperCase() + cleaned.substring(1);
-  }
-
-  static String _formatTechniqueName(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Нет данных';
-    }
-
-    final normalized = value.trim().toUpperCase();
-
-    switch (normalized) {
-      case 'SOCRATIC_DIALOGUE':
-        return 'Сократический диалог';
-      case 'DOWNWARD_ARROW':
-        return 'Нисходящая стрелка';
-      case 'REFRAMING':
-        return 'Рефрейминг';
-      case 'SUMMARY':
-        return 'Подведение итогов';
-      case 'NONE':
-        return 'Нет данных';
-      default:
-        return _formatAnalyticsName(value);
-    }
-  }
-}
-
-class _AnalyticsGrid extends StatelessWidget {
-  final List<Widget> children;
-
-  const _AnalyticsGrid({
-    required this.children,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final itemWidth = (constraints.maxWidth - AppSpacing.md) / 2;
-
-        return Wrap(
-          spacing: AppSpacing.md,
-          runSpacing: AppSpacing.md,
-          children: children.map((child) {
-            return SizedBox(
-              width: itemWidth,
-              child: child,
-            );
-          }).toList(),
-        );
-      },
-    );
-  }
-}
-
-class _AnalyticsTile extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  final bool isDate;
-
-  const _AnalyticsTile({
-    required this.label,
-    required this.value,
-    required this.icon,
-    this.isDate = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    final backgroundColor = isDark
-        ? AppColors.darkSurfaceSoft.withOpacity(0.72)
-        : AppColors.white.withOpacity(0.52);
-
-    final borderColor = isDark
-        ? AppColors.darkBorder
-        : AppColors.white.withOpacity(0.78);
-
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: AppRadius.large,
-        border: Border.all(
-          color: borderColor,
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SoftIconBox(
-            icon: icon,
-            color: theme.colorScheme.primary,
-            size: 34,
-            iconSize: 17,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            value,
-            maxLines: isDate ? 1 : 2,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontSize: isDate ? 16 : 22,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
+          Padding(
+            padding:
+                const EdgeInsets.fromLTRB(
+              AppSpacing.xl,
+              AppSpacing.xl,
+              AppSpacing.lg,
+              AppSpacing.lg,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Аналитика',
+                    style: theme
+                        .textTheme
+                        .titleLarge
+                        ?.copyWith(
+                      fontWeight:
+                          FontWeight.w800,
+                      letterSpacing:
+                          -0.45,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons
+                      .chevron_right_rounded,
+                  color: theme
+                      .colorScheme
+                      .onSurfaceVariant,
+                  size: 28,
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          Padding(
+            padding:
+                const EdgeInsets.fromLTRB(
+              AppSpacing.xl,
+              0,
+              AppSpacing.xl,
+              AppSpacing.xl,
+            ),
+            child: Row(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _HomeMoodPreview(
+                    wellbeing:
+                        data.wellbeingWeek,
+                  ),
+                ),
+                const SizedBox(
+                  width: AppSpacing.xl,
+                ),
+                Expanded(
+                  child:
+                      _HomeResiliencePreview(
+                    resilience:
+                        data.resilience,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: theme.dividerColor
+                .withOpacity(0.55),
+          ),
+          IntrinsicHeight(
+            child: Row(
+              children: [
+                Expanded(
+                  child:
+                      _AnalyticsBottomValue(
+                    label: 'Записей',
+                    value:
+                        '$totalEntries',
+                  ),
+                ),
+                VerticalDivider(
+                  width: 1,
+                  thickness: 1,
+                  color: theme
+                      .dividerColor
+                      .withOpacity(
+                        0.55,
+                      ),
+                ),
+                Expanded(
+                  child:
+                      _AnalyticsBottomValue(
+                    label: 'Техник',
+                    value:
+                        '$techniquesCount',
+                  ),
+                ),
+                VerticalDivider(
+                  width: 1,
+                  thickness: 1,
+                  color: theme
+                      .dividerColor
+                      .withOpacity(
+                        0.55,
+                      ),
+                ),
+                Expanded(
+                  child:
+                      _AnalyticsBottomValue(
+                    label: 'Сессий',
+                    value:
+                        '$totalSessions',
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1090,54 +1456,172 @@ class _AnalyticsTile extends StatelessWidget {
   }
 }
 
-class _InsightRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final int? count;
+class _HomeMoodPreview
+    extends StatelessWidget {
+  final AnalyticsWellbeingWeekModel
+  wellbeing;
 
-  const _InsightRow({
-    required this.label,
-    required this.value,
-    required this.count,
+  const _HomeMoodPreview({
+    required this.wellbeing,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final hasCount = count != null && count! > 0 && value != 'Нет данных';
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
       children: [
-        _SoftIconBox(
-          icon: Icons.insights_rounded,
-          color: theme.colorScheme.primary,
-          size: 34,
-          iconSize: 17,
+        Text(
+          'Состояние',
+          style: theme
+              .textTheme.bodyMedium
+              ?.copyWith(
+            color: theme
+                .colorScheme
+                .onSurfaceVariant,
+          ),
         ),
-        const SizedBox(width: AppSpacing.md),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+        const SizedBox(height: 2),
+        Text(
+          'за неделю',
+          style: theme
+              .textTheme.bodySmall
+              ?.copyWith(
+            color: theme
+                .colorScheme
+                .onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(
+          height: AppSpacing.lg,
+        ),
+        SizedBox(
+          height: 92,
+          width: double.infinity,
+          child: wellbeing.hasData
+              ? CustomPaint(
+                  painter:
+                      _MiniWellbeingPainter(
+                    items:
+                        wellbeing.items,
+                    lineColor: theme
+                        .colorScheme
+                        .primary,
+                    mutedColor: theme
+                        .colorScheme
+                        .onSurfaceVariant
+                        .withOpacity(
+                          0.18,
+                        ),
+                  ),
+                )
+              : Center(
+                  child: Text(
+                    'Нет данных',
+                    style: theme
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(
+                      color: theme
+                          .colorScheme
+                          .onSurfaceVariant,
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                hasCount ? '$value · $count' : value,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.15,
+        ),
+      ],
+    );
+  }
+}
+
+class _HomeResiliencePreview
+    extends StatelessWidget {
+  final AnalyticsResilienceModel
+  resilience;
+
+  const _HomeResiliencePreview({
+    required this.resilience,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    final score =
+        resilience.safeScore;
+
+    return Column(
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Устойчивость',
+          style: theme
+              .textTheme.bodyMedium
+              ?.copyWith(
+            color: theme
+                .colorScheme
+                .onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          resilience.hasData
+              ? '$score%'
+              : '—',
+          style: theme
+              .textTheme
+              .headlineMedium
+              ?.copyWith(
+            fontWeight:
+                FontWeight.w800,
+            letterSpacing: -0.8,
+          ),
+        ),
+        const SizedBox(
+          height: AppSpacing.md,
+        ),
+        Center(
+          child: SizedBox(
+            width: 104,
+            height: 104,
+            child: Stack(
+              alignment:
+                  Alignment.center,
+              children: [
+                SizedBox.expand(
+                  child:
+                      CircularProgressIndicator(
+                    value:
+                        resilience.hasData
+                            ? score / 100
+                            : 0,
+                    strokeWidth: 7,
+                    strokeCap:
+                        StrokeCap.round,
+                    backgroundColor: theme
+                        .colorScheme
+                        .primary
+                        .withOpacity(
+                          0.10,
+                        ),
+                    color: theme
+                        .colorScheme
+                        .primary,
+                  ),
                 ),
-              ),
-            ],
+                Icon(
+                  Icons
+                      .favorite_rounded,
+                  color: theme
+                      .colorScheme
+                      .primary,
+                  size: 31,
+                ),
+              ],
+            ),
           ),
         ),
       ],
@@ -1145,7 +1629,210 @@ class _InsightRow extends StatelessWidget {
   }
 }
 
-class _SmallInfoRow extends StatelessWidget {
+class _AnalyticsBottomValue
+    extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _AnalyticsBottomValue({
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding:
+          const EdgeInsets.all(
+        AppSpacing.lg,
+      ),
+      child: Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: theme
+                .textTheme.bodyMedium
+                ?.copyWith(
+              color: theme
+                  .colorScheme
+                  .onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: theme
+                .textTheme
+                .titleLarge
+                ?.copyWith(
+              fontWeight:
+                  FontWeight.w800,
+              letterSpacing: -0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniWellbeingPainter
+    extends CustomPainter {
+  final List<AnalyticsWellbeingDayModel>
+  items;
+
+  final Color lineColor;
+  final Color mutedColor;
+
+  const _MiniWellbeingPainter({
+    required this.items,
+    required this.lineColor,
+    required this.mutedColor,
+  });
+
+  @override
+  void paint(
+    Canvas canvas,
+    Size size,
+  ) {
+    if (items.isEmpty) {
+      return;
+    }
+
+    final gridPaint = Paint()
+      ..color = mutedColor
+      ..strokeWidth = 1;
+
+    canvas.drawLine(
+      Offset(0, size.height * 0.75),
+      Offset(
+        size.width,
+        size.height * 0.75,
+      ),
+      gridPaint,
+    );
+
+    final points =
+        <int, Offset>{};
+
+    final horizontalStep =
+        items.length <= 1
+        ? 0.0
+        : size.width /
+            (items.length - 1);
+
+    for (
+      int index = 0;
+      index < items.length;
+      index++
+    ) {
+      final score = items[index].score;
+
+      if (score == null) {
+        continue;
+      }
+
+      final normalized =
+          score.clamp(0, 100) / 100;
+
+      final x =
+          horizontalStep * index;
+
+      final y = size.height -
+          normalized *
+              (size.height - 10) -
+          5;
+
+      points[index] = Offset(x, y);
+    }
+
+    if (points.isEmpty) {
+      return;
+    }
+
+    final linePaint = Paint()
+      ..color = lineColor
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
+
+    final dotPaint = Paint()
+      ..color = lineColor
+      ..style = PaintingStyle.fill;
+
+    Path? currentPath;
+    int? previousIndex;
+
+    for (
+      int index = 0;
+      index < items.length;
+      index++
+    ) {
+      final point = points[index];
+
+      if (point == null) {
+        currentPath = null;
+        previousIndex = null;
+        continue;
+      }
+
+      if (currentPath == null ||
+          previousIndex == null ||
+          index != previousIndex + 1) {
+        currentPath = Path()
+          ..moveTo(
+            point.dx,
+            point.dy,
+          );
+      } else {
+        currentPath.lineTo(
+          point.dx,
+          point.dy,
+        );
+      }
+
+      if (previousIndex != null &&
+          index == previousIndex + 1) {
+        canvas.drawPath(
+          currentPath,
+          linePaint,
+        );
+      }
+
+      canvas.drawCircle(
+        point,
+        3.5,
+        dotPaint,
+      );
+
+      previousIndex = index;
+    }
+  }
+
+  @override
+  bool shouldRepaint(
+    covariant _MiniWellbeingPainter
+        oldDelegate,
+  ) {
+    return oldDelegate.items != items ||
+        oldDelegate.lineColor !=
+            lineColor ||
+        oldDelegate.mutedColor !=
+            mutedColor;
+  }
+}
+
+// ============================================================
+// SHARED HOME WIDGETS
+// ============================================================
+
+class _SmallInfoRow
+    extends StatelessWidget {
   final String label;
   final String value;
 
@@ -1163,21 +1850,31 @@ class _SmallInfoRow extends StatelessWidget {
         Expanded(
           child: Text(
             label,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+            style: theme
+                .textTheme.bodyMedium
+                ?.copyWith(
+              color: theme
+                  .colorScheme
+                  .onSurfaceVariant,
             ),
           ),
         ),
-        const SizedBox(width: AppSpacing.md),
+        const SizedBox(
+          width: AppSpacing.md,
+        ),
         Flexible(
           child: Text(
             value,
-            textAlign: TextAlign.right,
+            textAlign:
+                TextAlign.right,
             maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.15,
+            overflow:
+                TextOverflow.ellipsis,
+            style: theme
+                .textTheme.bodyMedium
+                ?.copyWith(
+              fontWeight:
+                  FontWeight.w700,
             ),
           ),
         ),
@@ -1186,7 +1883,8 @@ class _SmallInfoRow extends StatelessWidget {
   }
 }
 
-class _SoftIconBox extends StatelessWidget {
+class _SoftIconBox
+    extends StatelessWidget {
   final IconData icon;
   final Color color;
   final double size;
@@ -1205,10 +1903,15 @@ class _SoftIconBox extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: color.withOpacity(0.11),
-        borderRadius: BorderRadius.circular(size * 0.38),
+        color:
+            color.withOpacity(0.11),
+        borderRadius:
+            BorderRadius.circular(
+          size * 0.38,
+        ),
         border: Border.all(
-          color: color.withOpacity(0.10),
+          color:
+              color.withOpacity(0.10),
           width: 1,
         ),
       ),
@@ -1221,6 +1924,11 @@ class _SoftIconBox extends StatelessWidget {
   }
 }
 
-bool _isSameDate(DateTime a, DateTime b) {
-  return a.year == b.year && a.month == b.month && a.day == b.day;
+bool _isSameDate(
+  DateTime a,
+  DateTime b,
+) {
+  return a.year == b.year &&
+      a.month == b.month &&
+      a.day == b.day;
 }

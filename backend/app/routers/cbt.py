@@ -86,6 +86,23 @@ STABILIZATION_REPLY = (
     "Назови один предмет рядом, который ты видишь прямо сейчас."
 )
 
+WELLBEING_SCORE_QUESTION = (
+    "Теперь оцени своё общее состояние от 0 до 100, "
+    "где 0 — сейчас очень тяжело, а 100 — спокойно и хорошо."
+)
+
+
+WELLBEING_SCORE_INVALID_REPLY = (
+    "Нужна одна общая оценка от 0 до 100. "
+    "Какое число лучше всего описывает твоё состояние сейчас?"
+)
+
+
+WELLBEING_SCORE_FINISH_REPLY = (
+    "Сессия завершена. Я сохраню запись в дневник, "
+    "чтобы ты могла вернуться к ней позже."
+)
+
 
 def ensure_cbt_available_for_user(current_user: User):
     """
@@ -119,20 +136,6 @@ def get_phase_for_step(step: str) -> str:
     return STEP_TO_PHASE.get(step, "SITUATION_ANALYSIS")
 
 def has_emotion_intensity(message: str) -> bool:
-    """
-    Проверяет, есть ли в сообщении оценка интенсивности эмоций от 0 до 100.
-
-    Примеры true:
-    - "тревога 80, страх 60"
-    - "тревога - 90"
-    - "80"
-    - "примерно на 70"
-
-    Примеры false:
-    - "тревога и страх"
-    - "мне плохо"
-    - "я не знаю что чувствую"
-    """
 
     if not message:
         return False
@@ -150,6 +153,242 @@ def has_emotion_intensity(message: str) -> bool:
 
     return False
 
+def extract_wellbeing_score(message: str) -> Optional[int]:
+
+    if not message:
+        return None
+
+    numbers = re.findall(
+        r"(?<!\d)(100|\d{1,2})(?!\d)",
+        message,
+    )
+
+    valid_values = []
+
+    for raw_value in numbers:
+        try:
+            value = int(raw_value)
+        except ValueError:
+            continue
+
+        if 0 <= value <= 100:
+            valid_values.append(value)
+
+    if not valid_values:
+        return None
+
+    normalized = message.lower().replace("ё", "е")
+
+    # Формат: "70 из 100"
+    if (
+        len(valid_values) >= 2
+        and valid_values[-1] == 100
+        and "из 100" in normalized
+    ):
+        return valid_values[0]
+
+    unique_values = list(dict.fromkeys(valid_values))
+
+    if len(unique_values) == 1:
+        return unique_values[0]
+
+    return None
+
+
+def is_wellbeing_uncertainty_message(message: str) -> bool:
+
+    if not message:
+        return False
+
+    normalized = (
+        message.lower()
+        .strip()
+        .replace("ё", "е")
+    )
+
+    uncertainty_phrases = [
+        "не знаю",
+        "не могу оценить",
+        "не получается оценить",
+        "сложно оценить",
+        "не понимаю сколько",
+        "не понимаю какое число",
+        "не могу выбрать число",
+        "затрудняюсь",
+        "не уверена",
+        "не уверен",
+    ]
+
+    return any(
+        phrase == normalized
+        or phrase in normalized
+        for phrase in uncertainty_phrases
+    )
+
+
+def extract_emotion_values(value: Any) -> list[int]:
+    
+    values: list[int] = []
+
+    def collect(item: Any):
+        if item is None:
+            return
+
+        if isinstance(item, bool):
+            return
+
+        if isinstance(item, int):
+            if 0 <= item <= 100:
+                values.append(item)
+            return
+
+        if isinstance(item, float):
+            if 0 <= item <= 100:
+                values.append(round(item))
+            return
+
+        if isinstance(item, str):
+            numbers = re.findall(
+                r"(?<!\d)(100|\d{1,2})(?!\d)",
+                item,
+            )
+
+            for number in numbers:
+                try:
+                    parsed = int(number)
+                except ValueError:
+                    continue
+
+                if 0 <= parsed <= 100:
+                    values.append(parsed)
+
+            return
+
+        if isinstance(item, dict):
+            for nested_value in item.values():
+                collect(nested_value)
+            return
+
+        if isinstance(item, list):
+            for nested_value in item:
+                collect(nested_value)
+
+    collect(value)
+
+    return values
+
+
+def build_wellbeing_help_reply(
+    emotions_after: Any,
+) -> str:
+
+    values = extract_emotion_values(
+        emotions_after
+    )
+
+    raw_text = ""
+
+    if isinstance(emotions_after, dict):
+        raw_value = emotions_after.get(
+            "raw_text"
+        )
+
+        if isinstance(raw_value, str):
+            raw_text = raw_value
+
+    elif isinstance(emotions_after, str):
+        raw_text = emotions_after
+
+    normalized = (
+        raw_text.lower()
+        .replace("ё", "е")
+    )
+
+    positive_markers = [
+        "радость",
+        "спокойствие",
+        "облегчение",
+        "надежда",
+        "уверенность",
+        "удовлетворение",
+        "интерес",
+        "воодушевление",
+        "тепло",
+        "счастье",
+    ]
+
+    negative_markers = [
+        "тревога",
+        "страх",
+        "злость",
+        "грусть",
+        "вина",
+        "стыд",
+        "обида",
+        "паника",
+        "раздражение",
+        "беспомощность",
+        "бессилие",
+        "одиночество",
+        "растерянность",
+        "усталость",
+        "разочарование",
+        "отчаяние",
+    ]
+
+    has_positive = any(
+        marker in normalized
+        for marker in positive_markers
+    )
+
+    has_negative = any(
+        marker in normalized
+        for marker in negative_markers
+    )
+
+    if values and has_negative and not has_positive:
+        average_intensity = (
+            sum(values) / len(values)
+        )
+
+        suggested_score = round(
+            100 - average_intensity
+        )
+
+        suggested_score = max(
+            0,
+            min(100, suggested_score),
+        )
+
+        return (
+            f"Можно взять ориентир около {suggested_score}: "
+            "чем слабее неприятные эмоции, тем выше общая оценка. "
+            "Какое одно число от 0 до 100 подходит тебе сейчас?"
+        )
+
+    if values and has_positive and not has_negative:
+        suggested_score = round(
+            sum(values) / len(values)
+        )
+
+        suggested_score = max(
+            0,
+            min(100, suggested_score),
+        )
+
+        return (
+            f"Можно взять ориентир около {suggested_score}, "
+            "опираясь на интенсивность положительных эмоций. "
+            "Какое одно число от 0 до 100 подходит тебе сейчас?"
+        )
+
+    return (
+        "Попробуй не искать идеальную точность: "
+        "0 означает, что сейчас очень тяжело, "
+        "50 — нейтральное или смешанное состояние, "
+        "100 — спокойно и хорошо. "
+        "Какое одно число ближе всего?"
+    )
 
 def looks_like_emotion_words_without_intensity(message: str) -> bool:
     """
@@ -420,6 +659,9 @@ def build_session_data(
         "assistant_alternative_thought": session.assistant_alternative_thought,
         "final_alternative_thought": session.final_alternative_thought,
         "emotions_after": session.emotions_after,
+        "wellbeing_score_after": (
+            session.wellbeing_score_after
+        ),
     }
 
 
@@ -560,6 +802,9 @@ def create_diary_entry_if_not_exists(
         automatic_thought=session.automatic_thought or "",
         emotions_before=session.emotions_before,
         emotions_after=session.emotions_after,
+        wellbeing_score_after=(
+            session.wellbeing_score_after
+        ),
         cognitive_distortions=cognitive_distortions,
         evidence_for=session.evidence_for,
         evidence_against=session.evidence_against,
@@ -595,6 +840,8 @@ def has_minimum_diary_data(session: CBTSession) -> bool:
             session.emotions_before,
             alternative_thought,
             session.emotions_after,
+            session.wellbeing_score_after
+            is not None,
         ]
     )
 
@@ -637,8 +884,6 @@ def should_finish_session_from_ai(
     if not has_minimum_diary_data(session):
         return False
 
-    # Если ассистент задал вопрос, сессию нельзя закрывать.
-    # Пользователь должен иметь возможность ответить.
     if assistant_reply_asks_question(assistant_reply):
         return False
 
@@ -967,6 +1212,140 @@ def send_message_to_cbt_session(
             "session_status": session.status,
         }
 
+    if session.current_step == "RESULT":
+        # Первый ответ на RESULT — это эмоции после разбора.
+        if not session.emotions_after:
+            session.emotions_after = {
+                "raw_text": message_data.content
+            }
+
+            user_message = CBTMessage(
+                session_id=session.id,
+                role="user",
+                content=message_data.content,
+                used_technique=None,
+            )
+
+            assistant_message = CBTMessage(
+                session_id=session.id,
+                role="assistant",
+                content=WELLBEING_SCORE_QUESTION,
+                used_technique="SUMMARY",
+            )
+
+            session.current_step = "RESULT"
+            session.current_phase = "SUMMARY"
+
+            db.add(user_message)
+            db.add(assistant_message)
+            db.commit()
+
+            db.refresh(user_message)
+            db.refresh(assistant_message)
+            db.refresh(session)
+
+            return {
+                "user_message": user_message,
+                "assistant_message": assistant_message,
+                "current_step": session.current_step,
+                "current_phase": session.current_phase,
+                "session_status": session.status,
+            }
+
+        wellbeing_score = extract_wellbeing_score(
+            message_data.content
+        )
+
+        if wellbeing_score is None:
+            if is_wellbeing_uncertainty_message(
+                message_data.content
+            ):
+                assistant_reply = (
+                    build_wellbeing_help_reply(
+                        session.emotions_after
+                    )
+                )
+            else:
+                assistant_reply = (
+                    WELLBEING_SCORE_INVALID_REPLY
+                )
+
+            user_message = CBTMessage(
+                session_id=session.id,
+                role="user",
+                content=message_data.content,
+                used_technique=None,
+            )
+
+            assistant_message = CBTMessage(
+                session_id=session.id,
+                role="assistant",
+                content=assistant_reply,
+                used_technique="SUMMARY",
+            )
+
+            session.current_step = "RESULT"
+            session.current_phase = "SUMMARY"
+
+            db.add(user_message)
+            db.add(assistant_message)
+            db.commit()
+
+            db.refresh(user_message)
+            db.refresh(assistant_message)
+            db.refresh(session)
+
+            return {
+                "user_message": user_message,
+                "assistant_message": assistant_message,
+                "current_step": session.current_step,
+                "current_phase": session.current_phase,
+                "session_status": session.status,
+            }
+
+        session.wellbeing_score_after = (
+            wellbeing_score
+        )
+
+        user_message = CBTMessage(
+            session_id=session.id,
+            role="user",
+            content=message_data.content,
+            used_technique=None,
+        )
+
+        assistant_message = CBTMessage(
+            session_id=session.id,
+            role="assistant",
+            content=WELLBEING_SCORE_FINISH_REPLY,
+            used_technique="SUMMARY",
+        )
+
+        db.add(user_message)
+        db.add(assistant_message)
+
+        finish_session(session)
+
+        create_diary_entry_if_not_exists(
+            db=db,
+            session=session,
+            conclusion=FULL_SESSION_CONCLUSION,
+        )
+
+        db.commit()
+
+        db.refresh(user_message)
+        db.refresh(assistant_message)
+        db.refresh(session)
+
+        return {
+            "user_message": user_message,
+            "assistant_message": assistant_message,
+            "current_step": session.current_step,
+            "current_phase": session.current_phase,
+            "session_status": session.status,
+        }
+
     current_step = session.current_step
 
     save_user_answer_to_session(
@@ -1021,10 +1400,7 @@ def send_message_to_cbt_session(
         )
 
     elif assistant_result["should_advance"]:
-        # RESULT — особый шаг.
-        # На этом этапе LLM может задавать уточняющий вопрос:
-        # "Хочешь ли завершить запись?"
-        # В таком случае нельзя автоматически закрывать сессию.
+        
         if current_step == "RESULT":
             session.current_step = "RESULT"
             session.current_phase = "SUMMARY"
@@ -1075,6 +1451,19 @@ def finish_cbt_session_manually(
         db=db,
         current_user=current_user,
     )
+    
+    if (
+        session.current_step == "RESULT"
+        and session.emotions_after
+        and session.wellbeing_score_after is None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Перед завершением оцени общее "
+                "состояние от 0 до 100"
+            ),
+        )
 
     existing_entry = (
         db.query(DiaryEntry)
