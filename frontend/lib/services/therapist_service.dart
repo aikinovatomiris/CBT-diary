@@ -11,22 +11,36 @@ import 'api_exception.dart';
 class TherapistService {
   TherapistService._();
 
-  static Future<TherapistProfileModel> getMyProfile() async {
-    try {
-      final response = await ApiClient.get('/therapist/profile');
+  // ============================================================
+  // THERAPIST OWN PROFILE
+  // ============================================================
 
-      final data = _safeMap(response.data);
-      return TherapistProfileModel.fromJson(data);
+  static Future<TherapistProfileModel>
+  getMyProfile() async {
+    try {
+      final response = await ApiClient.get(
+        '/therapist/profile',
+      );
+
+      final data = _safeMap(
+        response.data,
+      );
+
+      return TherapistProfileModel.fromJson(
+        data,
+      );
     } on ApiException {
       rethrow;
     } catch (_) {
       throw const ApiException(
-        message: 'Не удалось загрузить анкету специалиста.',
+        message:
+            'Не удалось загрузить анкету специалиста.',
       );
     }
   }
 
-  static Future<TherapistProfileModel> updateMyProfile({
+  static Future<TherapistProfileModel>
+  updateMyProfile({
     required String fullName,
     required String qualification,
     required String therapyApproaches,
@@ -40,212 +54,475 @@ class TherapistService {
     try {
       final data = <String, dynamic>{
         'full_name': fullName.trim(),
-        'qualification': qualification.trim(),
-        'therapy_approaches': therapyApproaches.trim().isEmpty
-            ? null
-            : therapyApproaches.trim(),
+        'qualification':
+            qualification.trim(),
+        'therapy_approaches':
+            therapyApproaches
+                    .trim()
+                    .isEmpty
+                ? null
+                : therapyApproaches
+                    .trim(),
         'specializations':
-            specializations.trim().isEmpty ? null : specializations.trim(),
-        'description': description.trim().isEmpty ? null : description.trim(),
-        'price': price.trim().isEmpty ? null : price.trim(),
-        'contacts': contacts.isEmpty ? null : contacts,
-        'city': city.trim().isEmpty ? null : city.trim(),
-        'online_available': onlineAvailable,
+            specializations
+                    .trim()
+                    .isEmpty
+                ? null
+                : specializations
+                    .trim(),
+        'description':
+            description.trim().isEmpty
+                ? null
+                : description.trim(),
+        'price':
+            price.trim().isEmpty
+                ? null
+                : price.trim(),
+        'contacts':
+            contacts.isEmpty
+                ? null
+                : contacts,
+        'city':
+            city.trim().isEmpty
+                ? null
+                : city.trim(),
+        'online_available':
+            onlineAvailable,
       };
 
-      debugPrint('PATCH /therapist/profile payload: $data');
+      debugPrint(
+        'PATCH /therapist/profile payload: $data',
+      );
 
-      final response = await ApiClient.patch(
+      final response =
+          await ApiClient.patch(
         '/therapist/profile',
         data: data,
       );
 
-      final responseData = _safeMap(response.data);
-      return TherapistProfileModel.fromJson(responseData);
+      final responseData = _safeMap(
+        response.data,
+      );
+
+      return TherapistProfileModel.fromJson(
+        responseData,
+      );
     } on ApiException {
       rethrow;
     } catch (_) {
       throw const ApiException(
-        message: 'Не удалось сохранить анкету специалиста.',
+        message:
+            'Не удалось сохранить анкету специалиста.',
       );
     }
   }
 
-  static Future<TherapistProfileModel> submitProfile() async {
+  static Future<TherapistProfileModel>
+  submitProfile() async {
     try {
-      await ApiClient.post('/therapist/profile/submit');
+      await ApiClient.post(
+        '/therapist/profile/submit',
+      );
 
       return getMyProfile();
     } on ApiException {
       rethrow;
     } catch (_) {
       throw const ApiException(
-        message: 'Не удалось отправить анкету на модерацию.',
+        message:
+            'Не удалось отправить анкету на модерацию.',
       );
     }
   }
 
-  static Future<List<TherapistCertificateModel>> getMyCertificates() async {
+  static Future<
+      List<TherapistCertificateModel>>
+  getMyCertificates() async {
     try {
-      final response = await ApiClient.get(
+      final response =
+          await ApiClient.get(
         '/therapist/profile/certificates',
       );
 
       final data = response.data;
 
       if (data is List) {
-        return data.whereType<Map>().map((item) {
-          return TherapistCertificateModel.fromJson(
-            Map<String, dynamic>.from(item),
-          );
-        }).toList();
+        return data
+            .whereType<Map>()
+            .map(
+              (item) =>
+                  TherapistCertificateModel
+                      .fromJson(
+                Map<String, dynamic>.from(
+                  item,
+                ),
+              ),
+            )
+            .toList();
       }
 
       throw const ApiException(
-        message: 'Сервер вернул некорректный список сертификатов.',
+        message:
+            'Сервер вернул некорректный список сертификатов.',
       );
     } on ApiException {
       rethrow;
     } catch (_) {
       throw const ApiException(
-        message: 'Не удалось загрузить сертификаты специалиста.',
+        message:
+            'Не удалось загрузить сертификаты специалиста.',
       );
     }
   }
 
-  static Future<TherapistCertificateModel> uploadCertificate(
+  static Future<TherapistCertificateModel>
+  uploadCertificate(
     PlatformFile file,
   ) async {
     try {
-      final multipartFile = await _multipartFileFromPlatformFile(file);
+      final multipartFile =
+          await _multipartFileFromPlatformFile(
+        file,
+      );
 
-      final formData = FormData.fromMap({
+      final formData =
+          FormData.fromMap({
         'file': multipartFile,
       });
 
-      final response = await ApiClient.dio.post(
+      final response =
+          await ApiClient.dio.post(
         '/therapist/profile/certificates',
         data: formData,
         options: Options(
-          contentType: 'multipart/form-data',
+          contentType:
+              'multipart/form-data',
         ),
       );
 
-      final data = _safeMap(response.data);
-      return TherapistCertificateModel.fromJson(data);
+      final data = _safeMap(
+        response.data,
+      );
+
+      return TherapistCertificateModel.fromJson(
+        data,
+      );
     } on DioException catch (error) {
-      throw ApiException.fromDioException(error);
+      throw ApiException.fromDioException(
+        error,
+      );
     } on ApiException {
       rethrow;
     } catch (_) {
       throw const ApiException(
-        message: 'Не удалось загрузить сертификат.',
+        message:
+            'Не удалось загрузить сертификат.',
       );
     }
   }
 
-  static Future<TherapistProfileModel> uploadProfilePhoto(
+  static Future<TherapistProfileModel>
+  uploadProfilePhoto(
     XFile file,
   ) async {
     try {
-      final bytes = await file.readAsBytes();
+      final bytes =
+          await file.readAsBytes();
 
-      final formData = FormData.fromMap({
+      final formData =
+          FormData.fromMap({
         'file': MultipartFile.fromBytes(
           bytes,
-          filename: file.name.isNotEmpty ? file.name : 'profile_photo.jpg',
+          filename:
+              file.name.isNotEmpty
+                  ? file.name
+                  : 'profile_photo.jpg',
         ),
       });
 
-      final response = await ApiClient.dio.post(
+      final response =
+          await ApiClient.dio.post(
         '/therapist/profile/photo',
         data: formData,
         options: Options(
-          contentType: 'multipart/form-data',
+          contentType:
+              'multipart/form-data',
         ),
       );
 
-      final data = _safeMap(response.data);
-      return TherapistProfileModel.fromJson(data);
+      final data = _safeMap(
+        response.data,
+      );
+
+      return TherapistProfileModel.fromJson(
+        data,
+      );
     } on DioException catch (error) {
-      throw ApiException.fromDioException(error);
+      throw ApiException.fromDioException(
+        error,
+      );
     } on ApiException {
       rethrow;
     } catch (_) {
       throw const ApiException(
-        message: 'Не удалось загрузить фото профиля.',
+        message:
+            'Не удалось загрузить фото профиля.',
       );
     }
   }
 
-  static Future<List<TherapistProfileModel>> getApprovedTherapists({
+  // ============================================================
+  // PUBLIC THERAPIST CATALOG
+  // ============================================================
+
+  static Future<
+      List<TherapistProfileModel>>
+  getApprovedTherapists({
     String? city,
     String? specialization,
     bool? onlineAvailable,
+    bool favoritesOnly = false,
   }) async {
     try {
-      final queryParameters = <String, dynamic>{};
+      final queryParameters =
+          <String, dynamic>{};
 
-      if (city != null && city.trim().isNotEmpty) {
-        queryParameters['city'] = city.trim();
+      if (city != null &&
+          city.trim().isNotEmpty) {
+        queryParameters['city'] =
+            city.trim();
       }
 
-      if (specialization != null && specialization.trim().isNotEmpty) {
-        queryParameters['specialization'] = specialization.trim();
+      if (specialization != null &&
+          specialization
+              .trim()
+              .isNotEmpty) {
+        queryParameters['specialization'] =
+            specialization.trim();
       }
 
       if (onlineAvailable != null) {
-        queryParameters['online_available'] = onlineAvailable;
+        queryParameters[
+                'online_available'] =
+            onlineAvailable;
       }
 
-      final response = await ApiClient.get(
+      if (favoritesOnly) {
+        queryParameters['favorites_only'] =
+            true;
+      }
+
+      final response =
+          await ApiClient.get(
         '/therapists',
-        queryParameters: queryParameters,
+        queryParameters:
+            queryParameters,
       );
 
-      final data = response.data;
-
-      if (data is List) {
-        return data.whereType<Map>().map((item) {
-          return TherapistProfileModel.fromJson(
-            Map<String, dynamic>.from(item),
-          );
-        }).toList();
-      }
-
-      throw const ApiException(
-        message: 'Сервер вернул некорректный список терапевтов.',
+      return _parseTherapistList(
+        response.data,
       );
     } on ApiException {
       rethrow;
     } catch (_) {
       throw const ApiException(
-        message: 'Не удалось загрузить список терапевтов.',
+        message:
+            'Не удалось загрузить список терапевтов.',
       );
     }
   }
 
-  static Future<TherapistProfileModel> getTherapistById(
+  static Future<
+      List<TherapistProfileModel>>
+  getFavoriteTherapists() async {
+    try {
+      final response =
+          await ApiClient.get(
+        '/therapists/favorites',
+      );
+
+      return _parseTherapistList(
+        response.data,
+      );
+    } on ApiException {
+      rethrow;
+    } catch (_) {
+      throw const ApiException(
+        message:
+            'Не удалось загрузить закладки.',
+      );
+    }
+  }
+
+  static Future<TherapistProfileModel>
+  getTherapistById(
     int profileId,
   ) async {
     try {
-      final response = await ApiClient.get('/therapists/$profileId');
+      final response =
+          await ApiClient.get(
+        '/therapists/$profileId',
+      );
 
-      final data = _safeMap(response.data);
-      return TherapistProfileModel.fromJson(data);
+      final data = _safeMap(
+        response.data,
+      );
+
+      return TherapistProfileModel.fromJson(
+        data,
+      );
     } on ApiException {
       rethrow;
     } catch (_) {
       throw const ApiException(
-        message: 'Не удалось загрузить профиль терапевта.',
+        message:
+            'Не удалось загрузить профиль терапевта.',
       );
     }
   }
 
-  static Future<MultipartFile> _multipartFileFromPlatformFile(
+  // ============================================================
+  // FAVORITES
+  // ============================================================
+
+  static Future<bool> addToFavorites(
+    int profileId,
+  ) async {
+    try {
+      final response =
+          await ApiClient.post(
+        '/therapists/$profileId/favorite',
+      );
+
+      final data = _safeMap(
+        response.data,
+      );
+
+      return _parseFavoriteState(
+        data,
+        fallback: true,
+      );
+    } on ApiException {
+      rethrow;
+    } catch (_) {
+      throw const ApiException(
+        message:
+            'Не удалось добавить специалиста в закладки.',
+      );
+    }
+  }
+
+  static Future<bool> removeFromFavorites(
+    int profileId,
+  ) async {
+    try {
+      final response =
+          await ApiClient.delete(
+        '/therapists/$profileId/favorite',
+      );
+
+      final data = _safeMap(
+        response.data,
+      );
+
+      return _parseFavoriteState(
+        data,
+        fallback: false,
+      );
+    } on ApiException {
+      rethrow;
+    } catch (_) {
+      throw const ApiException(
+        message:
+            'Не удалось удалить специалиста из закладок.',
+      );
+    }
+  }
+
+  static Future<bool> setFavorite({
+    required int profileId,
+    required bool isFavorite,
+  }) {
+    if (isFavorite) {
+      return addToFavorites(
+        profileId,
+      );
+    }
+
+    return removeFromFavorites(
+      profileId,
+    );
+  }
+
+  // ============================================================
+  // HELPERS
+  // ============================================================
+
+  static List<TherapistProfileModel>
+  _parseTherapistList(
+    dynamic data,
+  ) {
+    if (data is List) {
+      return data
+          .whereType<Map>()
+          .map(
+            (item) =>
+                TherapistProfileModel
+                    .fromJson(
+              Map<String, dynamic>.from(
+                item,
+              ),
+            ),
+          )
+          .toList();
+    }
+
+    throw const ApiException(
+      message:
+          'Сервер вернул некорректный список терапевтов.',
+    );
+  }
+
+  static bool _parseFavoriteState(
+    Map<String, dynamic> data, {
+    required bool fallback,
+  }) {
+    final value = data['is_favorite'];
+
+    if (value is bool) {
+      return value;
+    }
+
+    if (value is num) {
+      return value != 0;
+    }
+
+    if (value is String) {
+      final normalized =
+          value.trim().toLowerCase();
+
+      if (normalized == 'true' ||
+          normalized == '1') {
+        return true;
+      }
+
+      if (normalized == 'false' ||
+          normalized == '0') {
+        return false;
+      }
+    }
+
+    return fallback;
+  }
+
+  static Future<MultipartFile>
+  _multipartFileFromPlatformFile(
     PlatformFile file,
   ) async {
-    final fileName = file.name.isNotEmpty ? file.name : 'certificate';
+    final fileName =
+        file.name.isNotEmpty
+            ? file.name
+            : 'certificate';
 
     if (file.bytes != null) {
       return MultipartFile.fromBytes(
@@ -256,9 +533,11 @@ class TherapistService {
 
     final path = file.path;
 
-    if (path == null || path.trim().isEmpty) {
+    if (path == null ||
+        path.trim().isEmpty) {
       throw const ApiException(
-        message: 'Не удалось прочитать файл сертификата.',
+        message:
+            'Не удалось прочитать файл сертификата.',
       );
     }
 
@@ -268,17 +547,22 @@ class TherapistService {
     );
   }
 
-  static Map<String, dynamic> _safeMap(dynamic data) {
+  static Map<String, dynamic> _safeMap(
+    dynamic data,
+  ) {
     if (data is Map<String, dynamic>) {
       return data;
     }
 
     if (data is Map) {
-      return Map<String, dynamic>.from(data);
+      return Map<String, dynamic>.from(
+        data,
+      );
     }
 
     throw const ApiException(
-      message: 'Сервер вернул некорректный ответ.',
+      message:
+          'Сервер вернул некорректный ответ.',
     );
   }
 }

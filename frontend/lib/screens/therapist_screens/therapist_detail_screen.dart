@@ -14,7 +14,8 @@ import '../../widgets/app_error_view.dart';
 import '../../widgets/app_loading.dart';
 import '../../widgets/user_messages_action.dart';
 
-class TherapistDetailScreen extends StatefulWidget {
+class TherapistDetailScreen
+    extends StatefulWidget {
   final String? profileId;
 
   const TherapistDetailScreen({
@@ -23,40 +24,59 @@ class TherapistDetailScreen extends StatefulWidget {
   });
 
   @override
-  State<TherapistDetailScreen> createState() => _TherapistDetailScreenState();
+  State<TherapistDetailScreen>
+  createState() =>
+      _TherapistDetailScreenState();
 }
 
-class _TherapistDetailScreenState extends State<TherapistDetailScreen> {
-  late Future<TherapistProfileModel> _therapistFuture;
+class _TherapistDetailScreenState
+    extends State<TherapistDetailScreen> {
+  late Future<TherapistProfileModel>
+  _therapistFuture;
 
   int? _profileId;
-  bool _isStartingConversation = false;
+
+  bool _isStartingConversation =
+      false;
+
+  bool _isFavoriteUpdating =
+      false;
 
   @override
   void initState() {
     super.initState();
 
-    _profileId = int.tryParse(widget.profileId ?? '');
+    _profileId = int.tryParse(
+      widget.profileId ?? '',
+    );
 
     if (_profileId != null) {
-      _therapistFuture = _loadTherapist();
+      _therapistFuture =
+          _loadTherapist();
     }
   }
 
-  Future<TherapistProfileModel> _loadTherapist() async {
+  Future<TherapistProfileModel>
+  _loadTherapist() async {
     final id = _profileId;
 
     if (id == null) {
       throw const ApiException(
-        message: 'Не найден ID специалиста.',
+        message:
+            'Не найден ID специалиста.',
       );
     }
 
-    final therapist = await TherapistService.getTherapistById(id);
+    final therapist =
+        await TherapistService
+            .getTherapistById(id);
 
-    if (therapist.status != null && therapist.status != 'approved') {
+    if (therapist.status != null &&
+        therapist.status !=
+            'approved') {
       throw const ApiException(
-        message: 'Анкета специалиста недоступна.',
+        message:
+            'Анкета специалиста недоступна.',
       );
     }
 
@@ -65,66 +85,197 @@ class _TherapistDetailScreenState extends State<TherapistDetailScreen> {
 
   Future<void> _refresh() async {
     setState(() {
-      _therapistFuture = _loadTherapist();
+      _therapistFuture =
+          _loadTherapist();
     });
 
     await _therapistFuture;
   }
 
-  Future<void> _startConversation(TherapistProfileModel therapist) async {
-    final currentRole = AuthService.cachedUser?.role ?? 'user';
+  Future<void> _toggleFavorite(
+    TherapistProfileModel therapist,
+  ) async {
+    final currentRole =
+        AuthService.cachedUser?.role;
 
     if (currentRole != 'user') {
       return;
     }
 
-    final therapistUserId = therapist.userId;
+    final profileId = therapist.id;
 
-    if (therapistUserId == null) {
-      _showSnackBar(
-        'Backend не вернул user_id специалиста. Нужен user_id, а не id анкеты.',
-      );
+    if (profileId == null ||
+        _isFavoriteUpdating) {
       return;
     }
 
+    final previousValue =
+        therapist.isFavorite;
+
+    final optimisticValue =
+        !previousValue;
+
+    final optimisticTherapist =
+        therapist.copyWith(
+      isFavorite: optimisticValue,
+    );
+
     setState(() {
-      _isStartingConversation = true;
+      _isFavoriteUpdating = true;
+      _therapistFuture =
+          Future.value(
+        optimisticTherapist,
+      );
     });
 
     try {
-      final conversation = await ConversationService.createConversation(
-        therapistUserId,
+      final savedValue =
+          await TherapistService
+              .setFavorite(
+        profileId: profileId,
+        isFavorite:
+            optimisticValue,
       );
 
-      if (!mounted) return;
-
-      final conversationId = conversation.id;
-
-      if (conversationId == null) {
-        _showSnackBar('Сервер не вернул ID переписки.');
+      if (!mounted) {
         return;
       }
 
-      context.push('/conversations/$conversationId');
+      setState(() {
+        _therapistFuture =
+            Future.value(
+          optimisticTherapist.copyWith(
+            isFavorite: savedValue,
+          ),
+        );
+      });
     } on ApiException catch (error) {
-      if (!mounted) return;
-      _showSnackBar(error.message);
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _therapistFuture =
+            Future.value(
+          therapist,
+        );
+      });
+
+      _showSnackBar(
+        error.message,
+      );
     } catch (_) {
-      if (!mounted) return;
-      _showSnackBar('Не удалось открыть переписку со специалистом.');
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _therapistFuture =
+            Future.value(
+          therapist,
+        );
+      });
+
+      _showSnackBar(
+        'Не удалось изменить закладку.',
+      );
     } finally {
       if (mounted) {
         setState(() {
-          _isStartingConversation = false;
+          _isFavoriteUpdating =
+              false;
         });
       }
     }
   }
 
-  void _showSnackBar(String message) {
-    if (!mounted) return;
+  Future<void> _startConversation(
+    TherapistProfileModel therapist,
+  ) async {
+    final currentRole =
+        AuthService.cachedUser?.role ??
+        'user';
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    if (currentRole != 'user') {
+      return;
+    }
+
+    final therapistUserId =
+        therapist.userId;
+
+    if (therapistUserId == null) {
+      _showSnackBar(
+        'Backend не вернул user_id специалиста. Нужен user_id, а не id анкеты.',
+      );
+
+      return;
+    }
+
+    setState(() {
+      _isStartingConversation =
+          true;
+    });
+
+    try {
+      final conversation =
+          await ConversationService
+              .createConversation(
+        therapistUserId,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      final conversationId =
+          conversation.id;
+
+      if (conversationId == null) {
+        _showSnackBar(
+          'Сервер не вернул ID переписки.',
+        );
+
+        return;
+      }
+
+      await context.push(
+        '/conversations/$conversationId',
+      );
+    } on ApiException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      _showSnackBar(
+        error.message,
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      _showSnackBar(
+        'Не удалось открыть переписку со специалистом.',
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isStartingConversation =
+              false;
+        });
+      }
+    }
+  }
+
+  void _showSnackBar(
+    String message,
+  ) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
       SnackBar(
         content: Text(message),
       ),
@@ -136,37 +287,54 @@ class _TherapistDetailScreenState extends State<TherapistDetailScreen> {
     if (_profileId == null) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Специалист'),
+          title:
+              const Text(
+            'Специалист',
+          ),
           actions: const [
             UserMessagesAction(),
           ],
         ),
-        body: const AppErrorView(
-          message: 'Не найден ID специалиста.',
+        body:
+            const AppErrorView(
+          message:
+              'Не найден ID специалиста.',
         ),
       );
     }
 
-    return FutureBuilder<TherapistProfileModel>(
+    return FutureBuilder<
+        TherapistProfileModel>(
       future: _therapistFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+      builder: (
+        context,
+        snapshot,
+      ) {
+        if (snapshot.connectionState ==
+            ConnectionState.waiting) {
           return const Scaffold(
             body: AppLoading(
-              text: 'Загрузка специалиста...',
+              text:
+                  'Загрузка специалиста...',
             ),
           );
         }
 
         if (snapshot.hasError) {
-          final error = snapshot.error;
-          final message = error is ApiException
-              ? error.message
-              : 'Не удалось загрузить специалиста.';
+          final error =
+              snapshot.error;
+
+          final message =
+              error is ApiException
+                  ? error.message
+                  : 'Не удалось загрузить специалиста.';
 
           return Scaffold(
             appBar: AppBar(
-              title: const Text('Специалист'),
+              title:
+                  const Text(
+                'Специалист',
+              ),
               actions: const [
                 UserMessagesAction(),
               ],
@@ -178,18 +346,23 @@ class _TherapistDetailScreenState extends State<TherapistDetailScreen> {
           );
         }
 
-        final therapist = snapshot.data;
+        final therapist =
+            snapshot.data;
 
         if (therapist == null) {
           return Scaffold(
             appBar: AppBar(
-              title: const Text('Специалист'),
+              title:
+                  const Text(
+                'Специалист',
+              ),
               actions: const [
                 UserMessagesAction(),
               ],
             ),
             body: AppErrorView(
-              message: 'Нет данных специалиста.',
+              message:
+                  'Нет данных специалиста.',
               onRetry: _refresh,
             ),
           );
@@ -197,54 +370,137 @@ class _TherapistDetailScreenState extends State<TherapistDetailScreen> {
 
         return _TherapistDetailContent(
           therapist: therapist,
-          isStartingConversation: _isStartingConversation,
-          onMessage: () => _startConversation(therapist),
+          isStartingConversation:
+              _isStartingConversation,
+          isFavoriteUpdating:
+              _isFavoriteUpdating,
+          onMessage: () {
+            _startConversation(
+              therapist,
+            );
+          },
+          onToggleFavorite: () {
+            _toggleFavorite(
+              therapist,
+            );
+          },
         );
       },
     );
   }
 }
 
-class _TherapistDetailContent extends StatelessWidget {
-  final TherapistProfileModel therapist;
+class _TherapistDetailContent
+    extends StatelessWidget {
+  final TherapistProfileModel
+  therapist;
+
   final bool isStartingConversation;
+  final bool isFavoriteUpdating;
+
   final VoidCallback onMessage;
+  final VoidCallback onToggleFavorite;
 
   const _TherapistDetailContent({
     required this.therapist,
     required this.isStartingConversation,
+    required this.isFavoriteUpdating,
     required this.onMessage,
+    required this.onToggleFavorite,
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final theme =
+        Theme.of(context);
 
-    final photoUrl = UrlHelper.buildFileUrl(therapist.photoUrl);
-    final hasPhoto = photoUrl.trim().isNotEmpty;
+    final photoUrl =
+        UrlHelper.buildFileUrl(
+      therapist.photoUrl,
+    );
 
-    final currentRole = AuthService.cachedUser?.role ?? 'user';
-    final canWriteToTherapist = currentRole == 'user';
+    final hasPhoto =
+        photoUrl.trim().isNotEmpty;
+
+    final currentRole =
+        AuthService.cachedUser?.role ??
+        'user';
+
+    final canWriteToTherapist =
+        currentRole == 'user';
+
+    final canUseFavorites =
+        currentRole == 'user';
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Специалист'),
-        actions: const [
-          UserMessagesAction(),
+        title:
+            const Text(
+          'Специалист',
+        ),
+        actions: [
+          if (canUseFavorites)
+            IconButton(
+              tooltip:
+                  therapist.isFavorite
+                      ? 'Удалить из закладок'
+                      : 'Добавить в закладки',
+              onPressed:
+                  isFavoriteUpdating
+                      ? null
+                      : onToggleFavorite,
+              icon:
+                  isFavoriteUpdating
+                      ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child:
+                              CircularProgressIndicator(
+                            strokeWidth:
+                                2,
+                            color: theme
+                                .colorScheme
+                                .primary,
+                          ),
+                        )
+                      : Icon(
+                          therapist
+                                  .isFavorite
+                              ? Icons
+                                  .bookmark_rounded
+                              : Icons
+                                  .bookmark_border_rounded,
+                          color: theme
+                              .colorScheme
+                              .primary,
+                        ),
+            ),
+          const UserMessagesAction(),
         ],
       ),
       body: SafeArea(
         child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth > 760;
+          builder: (
+            context,
+            constraints,
+          ) {
+            final isWide =
+                constraints.maxWidth >
+                760;
 
             return Center(
               child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: isWide ? 720 : double.infinity,
+                constraints:
+                    BoxConstraints(
+                  maxWidth:
+                      isWide
+                          ? 720
+                          : double.infinity,
                 ),
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(
+                  padding:
+                      const EdgeInsets
+                          .fromLTRB(
                     AppSpacing.xl,
                     AppSpacing.xl,
                     AppSpacing.xl,
@@ -257,89 +513,193 @@ class _TherapistDetailContent extends StatelessWidget {
                         children: [
                           CircleAvatar(
                             radius: 56,
-                            backgroundColor: theme.colorScheme.primary
-                                .withValues(alpha: 0.12),
+                            backgroundColor:
+                                theme
+                                    .colorScheme
+                                    .primary
+                                    .withValues(
+                                      alpha:
+                                          0.12,
+                                    ),
                             backgroundImage:
-                                hasPhoto ? NetworkImage(photoUrl) : null,
-                            child: hasPhoto
-                                ? null
-                                : Icon(
-                                    Icons.person_rounded,
-                                    color: theme.colorScheme.primary,
-                                    size: 56,
-                                  ),
+                                hasPhoto
+                                    ? NetworkImage(
+                                        photoUrl,
+                                      )
+                                    : null,
+                            child:
+                                hasPhoto
+                                    ? null
+                                    : Icon(
+                                        Icons
+                                            .person_rounded,
+                                        color: theme
+                                            .colorScheme
+                                            .primary,
+                                        size:
+                                            56,
+                                      ),
                           ),
-                          const SizedBox(height: AppSpacing.lg),
+                          const SizedBox(
+                            height:
+                                AppSpacing
+                                    .lg,
+                          ),
                           Text(
                             _safeText(
-                              therapist.fullName,
+                              therapist
+                                  .fullName,
                               'Специалист',
                             ),
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.headlineMedium,
+                            textAlign:
+                                TextAlign
+                                    .center,
+                            style: theme
+                                .textTheme
+                                .headlineMedium,
                           ),
-                          const SizedBox(height: AppSpacing.sm),
+                          const SizedBox(
+                            height:
+                                AppSpacing
+                                    .sm,
+                          ),
                           Text(
                             _safeText(
-                              therapist.qualification,
+                              therapist
+                                  .qualification,
                               'Квалификация не указана',
                             ),
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
+                            textAlign:
+                                TextAlign
+                                    .center,
+                            style: theme
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                              color: theme
+                                  .colorScheme
+                                  .onSurfaceVariant,
                             ),
                           ),
+                          if (canUseFavorites) ...[
+                            const SizedBox(
+                              height:
+                                  AppSpacing
+                                      .md,
+                            ),
+                            Text(
+                              therapist
+                                      .isFavorite
+                                  ? 'Добавлен в закладки'
+                                  : 'Можно сохранить специалиста в закладки',
+                              textAlign:
+                                  TextAlign
+                                      .center,
+                              style: theme
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                color: therapist
+                                        .isFavorite
+                                    ? theme
+                                        .colorScheme
+                                        .primary
+                                    : theme
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                fontWeight:
+                                    therapist
+                                            .isFavorite
+                                        ? FontWeight
+                                            .w700
+                                        : FontWeight
+                                            .w500,
+                              ),
+                            ),
+                          ],
                           if (canWriteToTherapist) ...[
-                            const SizedBox(height: AppSpacing.lg),
+                            const SizedBox(
+                              height:
+                                  AppSpacing
+                                      .lg,
+                            ),
                             AppButton(
-                              text: 'Написать специалисту',
-                              icon: Icons.chat_bubble_outline_rounded,
-                              isLoading: isStartingConversation,
-                              onPressed: onMessage,
+                              text:
+                                  'Написать специалисту',
+                              icon: Icons
+                                  .chat_bubble_outline_rounded,
+                              isLoading:
+                                  isStartingConversation,
+                              onPressed:
+                                  onMessage,
                             ),
                           ],
                         ],
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.lg),
-                    _SectionCard(
-                      title: 'Направления терапии',
-                      content: _listText(therapist.therapyApproaches),
+                    const SizedBox(
+                      height:
+                          AppSpacing.lg,
                     ),
                     _SectionCard(
-                      title: 'С какими запросами работает',
-                      content: _listText(therapist.specializations),
+                      title:
+                          'Направления терапии',
+                      content: _listText(
+                        therapist
+                            .therapyApproaches,
+                      ),
                     ),
                     _SectionCard(
-                      title: 'Описание',
+                      title:
+                          'С какими запросами работает',
+                      content: _listText(
+                        therapist
+                            .specializations,
+                      ),
+                    ),
+                    _SectionCard(
+                      title:
+                          'Описание',
                       content: _safeText(
-                        therapist.description,
+                        therapist
+                            .description,
                         'Описание не заполнено',
                       ),
                     ),
                     _SectionCard(
-                      title: 'Цена',
+                      title:
+                          'Цена',
                       content: _safeText(
                         therapist.price,
                         'Цена не указана',
                       ),
                     ),
                     _SectionCard(
-                      title: 'Город',
+                      title:
+                          'Город',
                       content: _safeText(
                         therapist.city,
                         'Город не указан',
                       ),
                     ),
                     _SectionCard(
-                      title: 'Формат',
-                      content: therapist.onlineAvailable == true
-                          ? 'Онлайн'
-                          : 'Очно / по договоренности',
+                      title:
+                          'Формат',
+                      content:
+                          therapist
+                                      .onlineAvailable ==
+                                  true
+                              ? 'Онлайн'
+                              : 'Очно / по договоренности',
                     ),
                     _SectionCard(
-                      title: 'Контакты',
-                      content: _contactsText(therapist.contacts),
+                      title:
+                          'Контакты',
+                      content:
+                          _contactsText(
+                        therapist
+                            .contacts,
+                      ),
                     ),
                   ],
                 ),
@@ -351,42 +711,67 @@ class _TherapistDetailContent extends StatelessWidget {
     );
   }
 
-  static String _safeText(String? value, String fallback) {
-    if (value == null || value.trim().isEmpty) {
+  static String _safeText(
+    String? value,
+    String fallback,
+  ) {
+    if (value == null ||
+        value.trim().isEmpty) {
       return fallback;
     }
 
     return value.trim();
   }
 
-  static String _listText(List<String> items) {
-    final filteredItems = items
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .toList();
+  static String _listText(
+    List<String> items,
+  ) {
+    final filteredItems =
+        items
+            .map(
+              (item) =>
+                  item.trim(),
+            )
+            .where(
+              (item) =>
+                  item.isNotEmpty,
+            )
+            .toList();
 
     if (filteredItems.isEmpty) {
       return 'Не заполнено';
     }
 
-    return filteredItems.map((item) => '• $item').join('\n');
+    return filteredItems
+        .map(
+          (item) => '• $item',
+        )
+        .join('\n');
   }
 
-  static String _contactsText(Map<String, dynamic>? contacts) {
-    if (contacts == null || contacts.isEmpty) {
+  static String _contactsText(
+    Map<String, dynamic>? contacts,
+  ) {
+    if (contacts == null ||
+        contacts.isEmpty) {
       return 'Контакты не указаны';
     }
 
-    return _formatDynamicText(contacts);
+    return _formatDynamicText(
+      contacts,
+    );
   }
 
-  static String _formatDynamicText(dynamic value) {
+  static String _formatDynamicText(
+    dynamic value,
+  ) {
     if (value == null) {
       return 'Не заполнено';
     }
 
     if (value is String) {
-      final trimmed = value.trim();
+      final trimmed =
+          value.trim();
 
       if (trimmed.isEmpty) {
         return 'Не заполнено';
@@ -395,21 +780,37 @@ class _TherapistDetailContent extends StatelessWidget {
       return trimmed;
     }
 
-    if (value is num || value is bool) {
+    if (value is num ||
+        value is bool) {
       return value.toString();
     }
 
     if (value is List) {
-      final items = value
-          .map(_formatDynamicText)
-          .where((item) => item.trim().isNotEmpty && item != 'Не заполнено')
-          .toList();
+      final items =
+          value
+              .map(
+                _formatDynamicText,
+              )
+              .where(
+                (item) =>
+                    item
+                        .trim()
+                        .isNotEmpty &&
+                    item !=
+                        'Не заполнено',
+              )
+              .toList();
 
       if (items.isEmpty) {
         return 'Не заполнено';
       }
 
-      return items.map((item) => '• $item').join('\n');
+      return items
+          .map(
+            (item) =>
+                '• $item',
+          )
+          .join('\n');
     }
 
     if (value is Map) {
@@ -417,36 +818,73 @@ class _TherapistDetailContent extends StatelessWidget {
         return 'Не заполнено';
       }
 
-      final rawText = value['raw_text'];
+      final rawText =
+          value['raw_text'];
 
-      if (rawText != null && rawText.toString().trim().isNotEmpty) {
-        return rawText.toString().trim();
+      if (rawText != null &&
+          rawText
+              .toString()
+              .trim()
+              .isNotEmpty) {
+        return rawText
+            .toString()
+            .trim();
       }
 
-      final text = value['text'];
+      final text =
+          value['text'];
 
-      if (text != null && text.toString().trim().isNotEmpty) {
-        return text.toString().trim();
+      if (text != null &&
+          text
+              .toString()
+              .trim()
+              .isNotEmpty) {
+        return text
+            .toString()
+            .trim();
       }
 
-      final items = value['items'];
+      final items =
+          value['items'];
 
-      if (items is List && items.isNotEmpty) {
-        return _formatDynamicText(items);
+      if (items is List &&
+          items.isNotEmpty) {
+        return _formatDynamicText(
+          items,
+        );
       }
 
-      final lines = <String>[];
+      final lines =
+          <String>[];
 
-      value.forEach((key, mapValue) {
-        final formattedKey = _humanizeKey(key.toString());
-        final formattedValue = _formatDynamicText(mapValue);
+      value.forEach(
+        (
+          key,
+          mapValue,
+        ) {
+          final formattedKey =
+              _humanizeKey(
+            key.toString(),
+          );
 
-        if (formattedValue.trim().isEmpty || formattedValue == 'Не заполнено') {
-          return;
-        }
+          final formattedValue =
+              _formatDynamicText(
+            mapValue,
+          );
 
-        lines.add('$formattedKey: $formattedValue');
-      });
+          if (formattedValue
+                  .trim()
+                  .isEmpty ||
+              formattedValue ==
+                  'Не заполнено') {
+            return;
+          }
+
+          lines.add(
+            '$formattedKey: $formattedValue',
+          );
+        },
+      );
 
       if (lines.isEmpty) {
         return 'Не заполнено';
@@ -455,16 +893,21 @@ class _TherapistDetailContent extends StatelessWidget {
       return lines.join('\n');
     }
 
-    final fallback = value.toString().trim();
+    final fallback =
+        value.toString().trim();
 
-    if (fallback.isEmpty || fallback == '{}' || fallback == '[]') {
+    if (fallback.isEmpty ||
+        fallback == '{}' ||
+        fallback == '[]') {
       return 'Не заполнено';
     }
 
     return fallback;
   }
 
-  static String _humanizeKey(String key) {
+  static String _humanizeKey(
+    String key,
+  ) {
     switch (key) {
       case 'telegram':
         return 'Telegram';
@@ -485,22 +928,33 @@ class _TherapistDetailContent extends StatelessWidget {
       case 'items':
         return 'Список';
       default:
-        return _capitalizeFirst(key.replaceAll('_', ' '));
+        return _capitalizeFirst(
+          key.replaceAll(
+            '_',
+            ' ',
+          ),
+        );
     }
   }
 
-  static String _capitalizeFirst(String value) {
-    final trimmed = value.trim();
+  static String _capitalizeFirst(
+    String value,
+  ) {
+    final trimmed =
+        value.trim();
 
     if (trimmed.isEmpty) {
       return trimmed;
     }
 
-    return trimmed[0].toUpperCase() + trimmed.substring(1);
+    return trimmed[0]
+            .toUpperCase() +
+        trimmed.substring(1);
   }
 }
 
-class _SectionCard extends StatelessWidget {
+class _SectionCard
+    extends StatelessWidget {
   final String title;
   final String content;
 
@@ -511,26 +965,42 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final theme =
+        Theme.of(context);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+      padding:
+          const EdgeInsets.only(
+        bottom: AppSpacing.lg,
+      ),
       child: AppCard(
         hasShadow: false,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment:
+              CrossAxisAlignment
+                  .start,
           children: [
             Text(
               title,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w800,
+              style: theme
+                  .textTheme.bodySmall
+                  ?.copyWith(
+                color: theme
+                    .colorScheme
+                    .primary,
+                fontWeight:
+                    FontWeight
+                        .w800,
               ),
             ),
-            const SizedBox(height: AppSpacing.sm),
+            const SizedBox(
+              height:
+                  AppSpacing.sm,
+            ),
             Text(
               content,
-              style: theme.textTheme.bodyMedium,
+              style: theme
+                  .textTheme.bodyMedium,
             ),
           ],
         ),

@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lottie/lottie.dart';
 
 import '../../models/analytics_model.dart';
 import '../../models/cbt_session_model.dart';
@@ -16,7 +17,6 @@ import '../../services/diary_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
 import '../../theme/app_spacing.dart';
-import '../../widgets/animated_ai_sphere/liquid_ai_orb.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/app_error_view.dart';
@@ -361,8 +361,8 @@ class _HomeContent extends StatelessWidget {
                       ),
 
                       const SizedBox(height: AppSpacing.xxl),
-
-                      AnimatedAISphere(
+                      
+                      _LottieSessionOrb(
                         isLoading: isCreatingSession,
                         onTap: onCreateSession,
                       ),
@@ -407,6 +407,211 @@ class _HomeContent extends StatelessWidget {
               ),
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+
+class _LottieSessionOrb extends StatelessWidget {
+  final bool isLoading;
+  final VoidCallback onTap;
+
+  const _LottieSessionOrb({
+    required this.isLoading,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // На телефоне сфера занимает доступную ширину, но не становится
+        // слишком большой на планшете или в браузере.
+        final availableWidth = constraints.maxWidth;
+        final orbSize = availableWidth.clamp(260.0, 380.0).toDouble();
+
+        return Center(
+          child: Semantics(
+            button: true,
+            label: isLoading
+                ? 'Создание КПТ-сессии'
+                : 'Начать новую КПТ-сессию',
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: isLoading ? null : onTap,
+              child: SizedBox(
+                width: orbSize,
+                height: orbSize,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: Lottie.asset(
+                          'assets/lottie/Orbit.json',
+                          fit: BoxFit.contain,
+                          repeat: true,
+                          animate: true,
+                          frameRate: FrameRate.max,
+                        ),
+                      ),
+                    ),
+
+                    // Небольшое затемнение/осветление под текстом помогает
+                    // надписям оставаться читаемыми на яркой анимации.
+                    IgnorePointer(
+                      child: Container(
+                        width: orbSize * 0.58,
+                        height: orbSize * 0.58,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: isDark
+                                ? [
+                                    const Color(0xFF080B22).withOpacity(0.42),
+                                    const Color(0xFF080B22).withOpacity(0.12),
+                                    Colors.transparent,
+                                  ]
+                                : [
+                                    Colors.white.withOpacity(0.58),
+                                    Colors.white.withOpacity(0.20),
+                                    Colors.transparent,
+                                  ],
+                            stops: const [0.0, 0.62, 1.0],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'КПТ-сессия',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: orbSize * 0.074,
+                            fontWeight: FontWeight.w700,
+                            color: isDark
+                                ? Colors.white
+                                : const Color(0xFF1A1A2E),
+                            letterSpacing: -0.5,
+                            shadows: isDark
+                                ? [
+                                    Shadow(
+                                      color: const Color(0xFF3B82FF)
+                                          .withOpacity(0.60),
+                                      blurRadius: 20,
+                                    ),
+                                  ]
+                                : [
+                                    Shadow(
+                                      color: const Color(0xFF8A5CFF)
+                                          .withOpacity(0.30),
+                                      blurRadius: 12,
+                                    ),
+                                  ],
+                          ),
+                        ),
+                        SizedBox(height: orbSize * 0.018),
+                        Text(
+                          isLoading ? 'Создаём сессию…' : 'Начать сессию',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: orbSize * 0.041,
+                            fontWeight: FontWeight.w500,
+                            color: isDark
+                                ? Colors.white.withOpacity(0.72)
+                                : const Color(0xFF5F6472),
+                            letterSpacing: 0.1,
+                          ),
+                        ),
+                        SizedBox(height: orbSize * 0.055),
+                        _LottieStartButton(
+                          size: orbSize * 0.15,
+                          isLoading: isLoading,
+                          isDark: isDark,
+                          onPressed: onTap,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _LottieStartButton extends StatelessWidget {
+  final double size;
+  final bool isLoading;
+  final bool isDark;
+  final VoidCallback onPressed;
+
+  const _LottieStartButton({
+    required this.size,
+    required this.isLoading,
+    required this.isDark,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: isLoading ? null : onPressed,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isDark
+                ? Colors.white.withOpacity(0.94)
+                : Colors.white.withOpacity(0.90),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withOpacity(0.80)
+                  : primary.withOpacity(0.20),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: primary.withOpacity(isDark ? 0.38 : 0.20),
+                blurRadius: 22,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+          child: Center(
+            child: isLoading
+                ? SizedBox(
+                    width: size * 0.36,
+                    height: size * 0.36,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.4,
+                      color: primary,
+                    ),
+                  )
+                : Icon(
+                    Icons.arrow_forward_rounded,
+                    size: size * 0.46,
+                    color: primary,
+                  ),
+          ),
         ),
       ),
     );

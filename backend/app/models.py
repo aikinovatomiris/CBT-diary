@@ -21,16 +21,43 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    email = Column(String, unique=True, index=True, nullable=False)
-    hashed_password = Column(String, nullable=False)
-    name = Column(String, nullable=False)
+    email = Column(
+        String,
+        unique=True,
+        index=True,
+        nullable=False,
+    )
+    hashed_password = Column(
+        String,
+        nullable=False,
+    )
+    name = Column(
+        String,
+        nullable=False,
+    )
 
-    role = Column(String, default="user", nullable=False)
-    auth_provider = Column(String, default="local", nullable=False)
+    role = Column(
+        String,
+        default="user",
+        nullable=False,
+    )
+    auth_provider = Column(
+        String,
+        default="local",
+        nullable=False,
+    )
 
-    assistant_style = Column(String, default="supportive", nullable=True)
+    assistant_style = Column(
+        String,
+        default="supportive",
+        nullable=True,
+    )
 
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
 
     sessions = relationship(
         "CBTSession",
@@ -48,6 +75,12 @@ class User(Base):
         "TherapistProfile",
         back_populates="user",
         uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+    therapist_favorites = relationship(
+        "TherapistFavorite",
+        back_populates="user",
         cascade="all, delete-orphan",
     )
 
@@ -75,29 +108,80 @@ class User(Base):
 class TherapistProfile(Base):
     __tablename__ = "therapist_profiles"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
 
-    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        unique=True,
+        nullable=False,
+    )
 
-    full_name = Column(String, nullable=False)
-    qualification = Column(String, nullable=False)
+    full_name = Column(
+        String,
+        nullable=False,
+    )
+    qualification = Column(
+        String,
+        nullable=False,
+    )
 
-    therapy_approaches = Column(Text, nullable=True)
-    specializations = Column(Text, nullable=True)
-    description = Column(Text, nullable=True)
-    price = Column(Text, nullable=True)
+    therapy_approaches = Column(
+        Text,
+        nullable=True,
+    )
+    specializations = Column(
+        Text,
+        nullable=True,
+    )
+    description = Column(
+        Text,
+        nullable=True,
+    )
+    price = Column(
+        Text,
+        nullable=True,
+    )
 
-    contacts = Column(JSON, nullable=True)
+    contacts = Column(
+        JSON,
+        nullable=True,
+    )
 
-    city = Column(Text, nullable=True)
-    online_available = Column(Boolean, default=True, nullable=False)
+    city = Column(
+        Text,
+        nullable=True,
+    )
+    online_available = Column(
+        Boolean,
+        default=True,
+        nullable=False,
+    )
 
-    photo_path = Column(Text, nullable=True)
+    photo_path = Column(
+        Text,
+        nullable=True,
+    )
 
-    status = Column(String, default="draft", nullable=False)
-    rejection_reason = Column(Text, nullable=True)
+    status = Column(
+        String,
+        default="draft",
+        nullable=False,
+    )
+    rejection_reason = Column(
+        Text,
+        nullable=True,
+    )
 
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
     updated_at = Column(
         DateTime,
         default=datetime.utcnow,
@@ -116,12 +200,21 @@ class TherapistProfile(Base):
         cascade="all, delete-orphan",
     )
 
+    favorited_by_users = relationship(
+        "TherapistFavorite",
+        back_populates="therapist_profile",
+        cascade="all, delete-orphan",
+    )
+
     @property
     def photo_url(self) -> str | None:
         if not self.photo_path:
             return None
 
-        normalized_path = self.photo_path.replace("\\", "/")
+        normalized_path = self.photo_path.replace(
+            "\\",
+            "/",
+        )
 
         if normalized_path.startswith("/"):
             return normalized_path
@@ -132,7 +225,11 @@ class TherapistProfile(Base):
 class TherapistCertificate(Base):
     __tablename__ = "therapist_certificates"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
 
     therapist_profile_id = Column(
         Integer,
@@ -140,10 +237,20 @@ class TherapistCertificate(Base):
         nullable=False,
     )
 
-    file_path = Column(Text, nullable=False)
-    original_filename = Column(String, nullable=False)
+    file_path = Column(
+        Text,
+        nullable=False,
+    )
+    original_filename = Column(
+        String,
+        nullable=False,
+    )
 
-    uploaded_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    uploaded_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
 
     therapist_profile = relationship(
         "TherapistProfile",
@@ -151,33 +258,146 @@ class TherapistCertificate(Base):
     )
 
 
+class TherapistFavorite(Base):
+    """
+    Закладка обычного пользователя на профиль терапевта.
+
+    Одна пара user + therapist_profile может существовать
+    в таблице только один раз.
+    """
+
+    __tablename__ = "therapist_favorites"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "therapist_profile_id",
+            name="uq_user_therapist_favorite",
+        ),
+    )
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
+
+    user_id = Column(
+        Integer,
+        ForeignKey(
+            "users.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+
+    therapist_profile_id = Column(
+        Integer,
+        ForeignKey(
+            "therapist_profiles.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
+
+    user = relationship(
+        "User",
+        back_populates="therapist_favorites",
+    )
+
+    therapist_profile = relationship(
+        "TherapistProfile",
+        back_populates="favorited_by_users",
+    )
+
+
 class CBTSession(Base):
     __tablename__ = "cbt_sessions"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
 
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False,
+    )
 
-    status = Column(String, default="active", nullable=False)
+    status = Column(
+        String,
+        default="active",
+        nullable=False,
+    )
 
-    current_step = Column(String, default="SITUATION", nullable=False)
-    current_phase = Column(String, default="SITUATION_ANALYSIS", nullable=False)
+    current_step = Column(
+        String,
+        default="SITUATION",
+        nullable=False,
+    )
+    current_phase = Column(
+        String,
+        default="SITUATION_ANALYSIS",
+        nullable=False,
+    )
 
-    situation = Column(Text, nullable=True)
-    automatic_thought = Column(Text, nullable=True)
-    emotions_before = Column(JSON, nullable=True)
+    situation = Column(
+        Text,
+        nullable=True,
+    )
+    automatic_thought = Column(
+        Text,
+        nullable=True,
+    )
+    emotions_before = Column(
+        JSON,
+        nullable=True,
+    )
 
-    evidence_for = Column(Text, nullable=True)
-    evidence_against = Column(Text, nullable=True)
+    evidence_for = Column(
+        Text,
+        nullable=True,
+    )
+    evidence_against = Column(
+        Text,
+        nullable=True,
+    )
 
-    user_alternative_thought = Column(Text, nullable=True)
-    assistant_alternative_thought = Column(Text, nullable=True)
-    final_alternative_thought = Column(Text, nullable=True)
+    user_alternative_thought = Column(
+        Text,
+        nullable=True,
+    )
+    assistant_alternative_thought = Column(
+        Text,
+        nullable=True,
+    )
+    final_alternative_thought = Column(
+        Text,
+        nullable=True,
+    )
 
-    emotions_after = Column(JSON, nullable=True)
+    emotions_after = Column(
+        JSON,
+        nullable=True,
+    )
 
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    finished_at = Column(DateTime, nullable=True)
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
+    finished_at = Column(
+        DateTime,
+        nullable=True,
+    )
 
     user = relationship(
         "User",
@@ -201,16 +421,37 @@ class CBTSession(Base):
 class CBTMessage(Base):
     __tablename__ = "cbt_messages"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
 
-    session_id = Column(Integer, ForeignKey("cbt_sessions.id"), nullable=False)
+    session_id = Column(
+        Integer,
+        ForeignKey("cbt_sessions.id"),
+        nullable=False,
+    )
 
-    role = Column(String, nullable=False)
-    content = Column(Text, nullable=False)
+    role = Column(
+        String,
+        nullable=False,
+    )
+    content = Column(
+        Text,
+        nullable=False,
+    )
 
-    used_technique = Column(String, nullable=True)
+    used_technique = Column(
+        String,
+        nullable=True,
+    )
 
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
 
     session = relationship(
         "CBTSession",
@@ -221,24 +462,68 @@ class CBTMessage(Base):
 class DiaryEntry(Base):
     __tablename__ = "diary_entries"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
 
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    session_id = Column(Integer, ForeignKey("cbt_sessions.id"), unique=True, nullable=False)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False,
+    )
+    session_id = Column(
+        Integer,
+        ForeignKey("cbt_sessions.id"),
+        unique=True,
+        nullable=False,
+    )
 
-    situation = Column(Text, nullable=False)
-    automatic_thought = Column(Text, nullable=False)
+    situation = Column(
+        Text,
+        nullable=False,
+    )
+    automatic_thought = Column(
+        Text,
+        nullable=False,
+    )
 
-    emotions_before = Column(JSON, nullable=True)
-    emotions_after = Column(JSON, nullable=True)
-    cognitive_distortions = Column(JSON, nullable=True)
+    emotions_before = Column(
+        JSON,
+        nullable=True,
+    )
+    emotions_after = Column(
+        JSON,
+        nullable=True,
+    )
+    cognitive_distortions = Column(
+        JSON,
+        nullable=True,
+    )
 
-    evidence_for = Column(Text, nullable=True)
-    evidence_against = Column(Text, nullable=True)
-    alternative_thought = Column(Text, nullable=True)
-    conclusion = Column(Text, nullable=True)
+    evidence_for = Column(
+        Text,
+        nullable=True,
+    )
+    evidence_against = Column(
+        Text,
+        nullable=True,
+    )
+    alternative_thought = Column(
+        Text,
+        nullable=True,
+    )
+    conclusion = Column(
+        Text,
+        nullable=True,
+    )
 
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
 
     user = relationship(
         "User",
@@ -267,7 +552,11 @@ class Conversation(Base):
         ),
     )
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
 
     user_id = Column(
         Integer,
@@ -340,7 +629,11 @@ class Conversation(Base):
 class ConversationMessage(Base):
     __tablename__ = "conversation_messages"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
 
     conversation_id = Column(
         Integer,

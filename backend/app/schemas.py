@@ -1,7 +1,12 @@
 from datetime import datetime
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+)
 
 
 AssistantStyle = Literal[
@@ -31,29 +36,54 @@ TherapistProfileStatus = Literal[
 
 class UserCreate(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=6, max_length=72)
-    name: str = Field(min_length=1, max_length=100)
+    password: str = Field(
+        min_length=6,
+        max_length=72,
+    )
+    name: str = Field(
+        min_length=1,
+        max_length=100,
+    )
 
 
 class UserLogin(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=6, max_length=72)
-    
-    
+    password: str = Field(
+        min_length=6,
+        max_length=72,
+    )
+
+
 class GoogleLoginRequest(BaseModel):
-    id_token: str = Field(min_length=10)
+    id_token: str = Field(
+        min_length=10,
+    )
 
 
 class TherapistRegisterRequest(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=6, max_length=72)
-    name: str = Field(min_length=1, max_length=100)
-    full_name: str = Field(min_length=1, max_length=255)
-    qualification: str = Field(min_length=1, max_length=255)
+    password: str = Field(
+        min_length=6,
+        max_length=72,
+    )
+    name: str = Field(
+        min_length=1,
+        max_length=100,
+    )
+    full_name: str = Field(
+        min_length=1,
+        max_length=255,
+    )
+    qualification: str = Field(
+        min_length=1,
+        max_length=255,
+    )
 
 
 class UserResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
 
     id: int
     email: EmailStr
@@ -79,15 +109,25 @@ class AssistantStyleUpdate(BaseModel):
 
 
 class ChangePasswordRequest(BaseModel):
-    old_password: str = Field(min_length=6, max_length=72)
-    new_password: str = Field(min_length=6, max_length=72)
+    old_password: str = Field(
+        min_length=6,
+        max_length=72,
+    )
+    new_password: str = Field(
+        min_length=6,
+        max_length=72,
+    )
 
 
 class ChangePasswordResponse(BaseModel):
     message: str
 
 class UpdateUserNameRequest(BaseModel):
-    name: str = Field(min_length=1, max_length=100)
+    name: str = Field(
+        min_length=1,
+        max_length=100,
+    )
+
 
 # =========================
 # Therapist profile schemas
@@ -100,8 +140,11 @@ class TherapistContacts(BaseModel):
     instagram: Optional[str] = None
     email: Optional[str] = None
 
+
 class TherapistProfileResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
 
     id: int
     user_id: int
@@ -128,8 +171,16 @@ class TherapistProfileResponse(BaseModel):
 
 
 class TherapistProfileUpdate(BaseModel):
-    full_name: Optional[str] = Field(default=None, min_length=1, max_length=255)
-    qualification: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    full_name: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        max_length=255,
+    )
+    qualification: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        max_length=255,
+    )
 
     therapy_approaches: Optional[str] = None
     specializations: Optional[str] = None
@@ -148,7 +199,9 @@ class TherapistProfileSubmitResponse(BaseModel):
 
 
 class TherapistCertificateResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
 
     id: int
     therapist_profile_id: int
@@ -158,7 +211,9 @@ class TherapistCertificateResponse(BaseModel):
 
 
 class PublicTherapistProfileResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
 
     id: int
     user_id: int
@@ -178,13 +233,38 @@ class PublicTherapistProfileResponse(BaseModel):
 
     created_at: datetime
 
+    is_favorite: bool = False
+
+
+# =========================
+# Therapist favorites schemas
+# =========================
+
+class TherapistFavoriteResponse(BaseModel):
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
+
+    id: int
+    user_id: int
+    therapist_profile_id: int
+    created_at: datetime
+
+
+class TherapistFavoriteActionResponse(BaseModel):
+    message: str
+    therapist_profile_id: int
+    is_favorite: bool
+
 
 # =========================
 # Admin schemas
 # =========================
 
 class AdminTherapistCertificateResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
 
     id: int
     original_filename: str
@@ -193,7 +273,9 @@ class AdminTherapistCertificateResponse(BaseModel):
 
 
 class AdminTherapistProfileListItem(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
 
     id: int
     user_id: int
@@ -209,7 +291,7 @@ class AdminTherapistProfileListItem(BaseModel):
     contacts: Optional[TherapistContacts] = None
     city: Optional[str] = None
     online_available: bool
-    
+
     photo_url: Optional[str] = None
 
     status: str
@@ -220,7 +302,9 @@ class AdminTherapistProfileListItem(BaseModel):
 
 
 class AdminTherapistProfileDetail(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
 
     id: int
     user_id: int
@@ -237,7 +321,7 @@ class AdminTherapistProfileDetail(BaseModel):
 
     city: Optional[str] = None
     online_available: bool
-    
+
     photo_url: Optional[str] = None
 
     status: str
@@ -246,11 +330,16 @@ class AdminTherapistProfileDetail(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    certificates: list[AdminTherapistCertificateResponse] = []
+    certificates: list[
+        AdminTherapistCertificateResponse
+    ] = []
 
 
 class AdminRejectTherapistRequest(BaseModel):
-    reason: str = Field(min_length=1, max_length=1000)
+    reason: str = Field(
+        min_length=1,
+        max_length=1000,
+    )
 
 
 class AdminSummaryResponse(BaseModel):
@@ -272,7 +361,9 @@ class CBTSessionCreate(BaseModel):
 
 
 class CBTSessionResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
 
     id: int
     user_id: int
@@ -299,11 +390,15 @@ class CBTSessionResponse(BaseModel):
 
 
 class CBTMessageCreate(BaseModel):
-    content: str = Field(min_length=1)
+    content: str = Field(
+        min_length=1,
+    )
 
 
 class CBTMessageResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
 
     id: int
     session_id: int
@@ -339,9 +434,10 @@ class DiaryEntryUpdate(BaseModel):
     conclusion: Optional[str] = None
 
 
-
 class DiaryEntryResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
 
     id: int
     user_id: int
@@ -394,7 +490,8 @@ class AnalyticsTechniqueItem(BaseModel):
 
 class AnalyticsTechniquesResponse(BaseModel):
     items: list[AnalyticsTechniqueItem]
-    
+
+
 # =========================
 # Conversation schemas
 # =========================
@@ -404,7 +501,9 @@ class ConversationCreate(BaseModel):
 
 
 class ConversationResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
 
     id: int
     user_id: int
@@ -422,11 +521,15 @@ class ConversationResponse(BaseModel):
 
 
 class ConversationMessageCreate(BaseModel):
-    content: str = Field(min_length=1)
+    content: str = Field(
+        min_length=1,
+    )
 
 
 class ConversationMessageResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
 
     id: int
     conversation_id: int
