@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -14,160 +15,182 @@ import '../../widgets/app_error_view.dart';
 import '../../widgets/app_loading.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  const ProfileScreen({
+    super.key,
+  });
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  State<ProfileScreen> createState() {
+    return _ProfileScreenState();
+  }
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState
+    extends State<ProfileScreen> {
   late Future<UserModel> _userFuture;
 
   @override
   void initState() {
     super.initState();
+
     _userFuture = AuthService.me();
   }
 
+  // ============================================================
+  // REFRESH
+  // ============================================================
+
   Future<void> _refresh() async {
+    final refreshFuture = AuthService.me(
+      forceRefresh: true,
+    );
+
     setState(() {
-      _userFuture = AuthService.me(forceRefresh: true);
+      _userFuture = refreshFuture;
     });
 
-    await _userFuture;
+    await refreshFuture;
   }
+
+  // ============================================================
+  // LOGOUT
+  // ============================================================
 
   Future<void> _logout() async {
     await AuthService.logout();
 
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
-    context.go(AppRoutes.login);
+    context.go(
+      AppRoutes.login,
+    );
   }
 
-  void _openAssistantSettings() {
-    context.push(AppRoutes.assistantSettings).then((_) {
-      if (mounted) {
-        _refresh();
-      }
-    });
+  // ============================================================
+  // NAVIGATION
+  // ============================================================
+
+  Future<void> _openAssistantSettings() async {
+    await context.push(
+      AppRoutes.assistantSettings,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    await _refresh();
   }
 
   void _openChangePassword() {
-    context.push(AppRoutes.changePassword);
+    context.push(
+      AppRoutes.changePassword,
+    );
   }
 
-  Future<void> _openChangeNameDialog(String currentName) async {
-    final controller = TextEditingController(text: currentName.trim());
+  // ============================================================
+  // CHANGE NAME
+  // ============================================================
 
+  Future<void> _openChangeNameDialog(
+    String currentName,
+  ) async {
     final newName = await showDialog<String>(
       context: context,
       builder: (dialogContext) {
-        String? localError;
-
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Изменить имя'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: controller,
-                    autofocus: true,
-                    textInputAction: TextInputAction.done,
-                    decoration: InputDecoration(
-                      labelText: 'Имя',
-                      hintText: 'Как к тебе обращаться?',
-                      errorText: localError,
-                    ),
-                    onSubmitted: (_) {
-                      final value = controller.text.trim();
-
-                      if (value.isEmpty) {
-                        setDialogState(() {
-                          localError = 'Имя не может быть пустым';
-                        });
-                        return;
-                      }
-
-                      Navigator.pop(dialogContext, value);
-                    },
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('Отмена'),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    final value = controller.text.trim();
-
-                    if (value.isEmpty) {
-                      setDialogState(() {
-                        localError = 'Имя не может быть пустым';
-                      });
-                      return;
-                    }
-
-                    Navigator.pop(dialogContext, value);
-                  },
-                  child: const Text('Сохранить'),
-                ),
-              ],
-            );
-          },
+        return _ChangeNameDialog(
+          initialName: currentName,
         );
       },
     );
 
-    controller.dispose();
+    if (!mounted) {
+      return;
+    }
 
-    if (newName == null || newName.trim().isEmpty) return;
+    final cleanName = newName?.trim();
+
+    if (cleanName == null ||
+        cleanName.isEmpty) {
+      return;
+    }
 
     try {
-      final updatedUser = await ProfileService.updateName(newName);
+      final updatedUser =
+          await ProfileService.updateName(
+        cleanName,
+      );
 
-      await AuthService.me(forceRefresh: true);
+      if (!mounted) {
+        return;
+      }
 
-      if (!mounted) return;
+      // Обновляем общий кэш, чтобы новое имя сразу
+      // появилось на HomeScreen и других экранах.
+      AuthService.updateCachedUser(
+        updatedUser,
+      );
 
       setState(() {
-        _userFuture = Future.value(updatedUser);
+        // SynchronousFuture не переводит FutureBuilder
+        // обратно на экран загрузки.
+        _userFuture =
+            SynchronousFuture<UserModel>(
+          updatedUser,
+        );
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         const SnackBar(
-          content: Text('Имя успешно изменено.'),
+          content: Text(
+            'Имя успешно изменено.',
+          ),
         ),
       );
     } on ApiException catch (error) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         SnackBar(
-          content: Text(error.message),
+          content: Text(
+            error.message,
+          ),
         ),
       );
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         const SnackBar(
-          content: Text('Не удалось изменить имя.'),
+          content: Text(
+            'Не удалось изменить имя.',
+          ),
         ),
       );
     }
   }
 
+  // ============================================================
+  // DISCLAIMER
+  // ============================================================
+
   void _showDisclaimer() {
     showDialog<void>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Дисклеймер'),
+          title: const Text(
+            'Дисклеймер',
+          ),
           content: const Text(
             'КПТ-дневник с ИИ-ассистентом не заменяет психолога, психотерапевта или медицинскую помощь. '
             'Приложение предназначено для самонаблюдения, структурирования мыслей и ведения дневника. '
@@ -175,8 +198,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Понятно'),
+              onPressed: () {
+                Navigator.of(
+                  dialogContext,
+                ).pop();
+              },
+              child: const Text(
+                'Понятно',
+              ),
             ),
           ],
         );
@@ -184,45 +213,67 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  String _styleTitle(String? style) {
+  // ============================================================
+  // FORMATTERS
+  // ============================================================
+
+  String _styleTitle(
+    String? style,
+  ) {
     switch (style) {
       case 'supportive':
         return 'Поддерживающий';
+
       case 'friendly':
         return 'Дружелюбный';
+
       case 'structured':
         return 'Структурированный';
+
       case 'concise':
         return 'Краткий';
+
       default:
         return 'Не указан';
     }
   }
 
-  String _safeText(String? value, {String fallback = 'Не указано'}) {
-    if (value == null || value.trim().isEmpty) {
+  String _safeText(
+    String? value, {
+    String fallback = 'Не указано',
+  }) {
+    if (value == null ||
+        value.trim().isEmpty) {
       return fallback;
     }
 
     return value.trim();
   }
 
+  // ============================================================
+  // BUILD
+  // ============================================================
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<UserModel>(
       future: _userFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState ==
+            ConnectionState.waiting) {
           return const Scaffold(
             body: AppLoading(
-              text: 'Загрузка профиля...',
+              text:
+                  'Загрузка профиля...',
             ),
           );
         }
 
         if (snapshot.hasError) {
           final error = snapshot.error;
-          final message = error is ApiException
+
+          final message =
+              error is ApiException
               ? error.message
               : 'Не удалось загрузить профиль.';
 
@@ -239,7 +290,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (user == null) {
           return Scaffold(
             body: AppErrorView(
-              message: 'Нет данных пользователя.',
+              message:
+                  'Нет данных пользователя.',
               onRetry: _refresh,
             ),
           );
@@ -249,10 +301,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
           user: user,
           styleTitle: _styleTitle,
           safeText: _safeText,
-          onChangeName: () => _openChangeNameDialog(user.name ?? ''),
-          onAssistantSettings: _openAssistantSettings,
-          onChangePassword: _openChangePassword,
-          onDisclaimer: _showDisclaimer,
+          onChangeName: () {
+            _openChangeNameDialog(
+              user.name ?? '',
+            );
+          },
+          onAssistantSettings:
+              _openAssistantSettings,
+          onChangePassword:
+              _openChangePassword,
+          onDisclaimer:
+              _showDisclaimer,
           onLogout: _logout,
           onRefresh: _refresh,
         );
@@ -261,14 +320,138 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-class _ProfileContent extends StatelessWidget {
+// ============================================================
+// CHANGE NAME DIALOG
+// ============================================================
+
+class _ChangeNameDialog
+    extends StatefulWidget {
+  final String initialName;
+
+  const _ChangeNameDialog({
+    required this.initialName,
+  });
+
+  @override
+  State<_ChangeNameDialog> createState() {
+    return _ChangeNameDialogState();
+  }
+}
+
+class _ChangeNameDialogState
+    extends State<_ChangeNameDialog> {
+  late final TextEditingController
+      _controller;
+
+  String? _errorText;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller =
+        TextEditingController(
+      text: widget.initialName.trim(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+
+    super.dispose();
+  }
+
+  void _submit() {
+    final value =
+        _controller.text.trim();
+
+    if (value.isEmpty) {
+      setState(() {
+        _errorText =
+            'Имя не может быть пустым';
+      });
+
+      return;
+    }
+
+    Navigator.of(context).pop(
+      value,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text(
+        'Изменить имя',
+      ),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        textInputAction:
+            TextInputAction.done,
+        decoration: InputDecoration(
+          labelText: 'Имя',
+          hintText:
+              'Как к тебе обращаться?',
+          errorText: _errorText,
+        ),
+        onChanged: (_) {
+          if (_errorText == null) {
+            return;
+          }
+
+          setState(() {
+            _errorText = null;
+          });
+        },
+        onSubmitted: (_) {
+          _submit();
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+          child: const Text(
+            'Отмена',
+          ),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          child: const Text(
+            'Сохранить',
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ============================================================
+// PROFILE CONTENT
+// ============================================================
+
+class _ProfileContent
+    extends StatelessWidget {
   final UserModel user;
-  final String Function(String?) styleTitle;
-  final String Function(String?, {String fallback}) safeText;
+
+  final String Function(String?)
+      styleTitle;
+
+  final String Function(
+    String?, {
+    String fallback,
+  })
+  safeText;
+
   final VoidCallback onChangeName;
   final VoidCallback onAssistantSettings;
   final VoidCallback onChangePassword;
   final VoidCallback onDisclaimer;
+
   final Future<void> Function() onLogout;
   final Future<void> Function() onRefresh;
 
@@ -286,23 +469,34 @@ class _ProfileContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final theme =
+        Theme.of(context);
 
     return Scaffold(
       body: SafeArea(
         child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth > 700;
+          builder: (
+            context,
+            constraints,
+          ) {
+            final isWide =
+                constraints.maxWidth >
+                700;
 
             return Center(
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxWidth: isWide ? 620 : double.infinity,
+                  maxWidth: isWide
+                      ? 620
+                      : double.infinity,
                 ),
                 child: RefreshIndicator(
                   onRefresh: onRefresh,
                   child: ListView(
-                    padding: const EdgeInsets.fromLTRB(
+                    physics:
+                        const AlwaysScrollableScrollPhysics(),
+                    padding:
+                        const EdgeInsets.fromLTRB(
                       AppSpacing.xl,
                       AppSpacing.xl,
                       AppSpacing.xl,
@@ -311,103 +505,185 @@ class _ProfileContent extends StatelessWidget {
                     children: [
                       Text(
                         'Профиль',
-                        style: theme.textTheme.headlineMedium,
+                        style: theme
+                            .textTheme
+                            .headlineMedium,
                       ),
-                      const SizedBox(height: AppSpacing.sm),
+                      const SizedBox(
+                        height:
+                            AppSpacing.sm,
+                      ),
                       Text(
                         'Данные аккаунта и настройки приложения.',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                        style: theme
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(
+                          color: theme
+                              .colorScheme
+                              .onSurfaceVariant,
                         ),
                       ),
-                      const SizedBox(height: AppSpacing.xl),
+                      const SizedBox(
+                        height:
+                            AppSpacing.xl,
+                      ),
                       AppCard(
                         hasShadow: false,
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment:
+                              CrossAxisAlignment
+                                  .start,
                           children: [
                             Text(
-                              safeText(user.name),
-                              style: theme.textTheme.titleLarge,
+                              safeText(
+                                user.name,
+                              ),
+                              style: theme
+                                  .textTheme
+                                  .titleLarge,
                             ),
-                            const SizedBox(height: AppSpacing.sm),
+                            const SizedBox(
+                              height:
+                                  AppSpacing
+                                      .sm,
+                            ),
                             Text(
-                              safeText(user.email),
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
+                              safeText(
+                                user.email,
+                              ),
+                              style: theme
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(
+                                color: theme
+                                    .colorScheme
+                                    .onSurfaceVariant,
                               ),
                             ),
-                            const SizedBox(height: AppSpacing.lg),
+                            const SizedBox(
+                              height:
+                                  AppSpacing
+                                      .lg,
+                            ),
                             _InfoRow(
-                              label: 'Стиль ассистента',
-                              value: styleTitle(user.assistantStyle),
+                              label:
+                                  'Стиль ассистента',
+                              value:
+                                  styleTitle(
+                                user.assistantStyle,
+                              ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: AppSpacing.lg),
+                      const SizedBox(
+                        height:
+                            AppSpacing.lg,
+                      ),
                       AppCard(
                         hasShadow: false,
                         child: Column(
                           children: [
                             _ProfileActionTile(
-                              icon: Icons.edit_outlined,
-                              title: 'Изменить имя',
-                              subtitle: 'Обновить имя для профиля и приветствия',
-                              onTap: onChangeName,
+                              icon:
+                                  Icons.edit_outlined,
+                              title:
+                                  'Изменить имя',
+                              subtitle:
+                                  'Обновить имя для профиля и приветствия',
+                              onTap:
+                                  onChangeName,
                             ),
                             const Divider(),
                             _ProfileActionTile(
-                              icon: Icons.smart_toy_outlined,
-                              title: 'Настройки ассистента',
-                              subtitle: 'Выбрать стиль общения',
-                              onTap: onAssistantSettings,
+                              icon: Icons
+                                  .smart_toy_outlined,
+                              title:
+                                  'Настройки ассистента',
+                              subtitle:
+                                  'Выбрать стиль общения',
+                              onTap:
+                                  onAssistantSettings,
                             ),
                             const Divider(),
-                            if (user.canChangePassword) ...[
+                            if (user
+                                .canChangePassword) ...[
                               _ProfileActionTile(
-                                icon: Icons.lock_outline_rounded,
-                                title: 'Сменить пароль',
-                                subtitle: 'Обновить пароль аккаунта',
-                                onTap: onChangePassword,
+                                icon: Icons
+                                    .lock_outline_rounded,
+                                title:
+                                    'Сменить пароль',
+                                subtitle:
+                                    'Обновить пароль аккаунта',
+                                onTap:
+                                    onChangePassword,
                               ),
                               const Divider(),
                             ],
-                            ValueListenableBuilder<ThemeMode>(
-                              valueListenable: ThemeController.themeMode,
-                              // ignore: unnecessary_underscores
-                              builder: (context, _, __) {
+                            ValueListenableBuilder<
+                                ThemeMode>(
+                              valueListenable:
+                                  ThemeController
+                                      .themeMode,
+                              builder: (
+                                context,
+                                themeMode,
+                                child,
+                              ) {
                                 return _ProfileActionTile(
-                                  icon: Theme.of(context).brightness ==
-                                          Brightness.dark
-                                      ? Icons.dark_mode_rounded
-                                      : Icons.light_mode_rounded,
-                                  title: 'Тема приложения',
-                                  subtitle: ThemeController.getThemeTitle(
+                                  icon: Theme.of(
+                                            context,
+                                          ).brightness ==
+                                          Brightness
+                                              .dark
+                                      ? Icons
+                                          .dark_mode_rounded
+                                      : Icons
+                                          .light_mode_rounded,
+                                  title:
+                                      'Тема приложения',
+                                  subtitle:
+                                      ThemeController
+                                          .getThemeTitle(
                                     context,
                                   ),
                                   onTap: () {
-                                    ThemeController.toggleTheme(context);
+                                    ThemeController
+                                        .toggleTheme(
+                                      context,
+                                    );
                                   },
                                 );
                               },
                             ),
                             const Divider(),
                             _ProfileActionTile(
-                              icon: Icons.info_outline_rounded,
-                              title: 'Дисклеймер',
-                              subtitle: 'Важная информация о приложении',
-                              onTap: onDisclaimer,
+                              icon: Icons
+                                  .info_outline_rounded,
+                              title:
+                                  'Дисклеймер',
+                              subtitle:
+                                  'Важная информация о приложении',
+                              onTap:
+                                  onDisclaimer,
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: AppSpacing.lg),
+                      const SizedBox(
+                        height:
+                            AppSpacing.lg,
+                      ),
                       AppButton(
                         text: 'Выйти',
-                        icon: Icons.logout_rounded,
-                        variant: AppButtonVariant.ghost,
-                        onPressed: onLogout,
+                        icon:
+                            Icons.logout_rounded,
+                        variant:
+                            AppButtonVariant
+                                .ghost,
+                        onPressed:
+                            onLogout,
                       ),
                     ],
                   ),
@@ -421,7 +697,12 @@ class _ProfileContent extends StatelessWidget {
   }
 }
 
-class _InfoRow extends StatelessWidget {
+// ============================================================
+// INFO ROW
+// ============================================================
+
+class _InfoRow
+    extends StatelessWidget {
   final String label;
   final String value;
 
@@ -432,23 +713,33 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final theme =
+        Theme.of(context);
 
     return Row(
       children: [
         Expanded(
           child: Text(
             label,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+            style: theme
+                .textTheme.bodyMedium
+                ?.copyWith(
+              color: theme
+                  .colorScheme
+                  .onSurfaceVariant,
             ),
           ),
         ),
-        const SizedBox(width: AppSpacing.md),
+        const SizedBox(
+          width: AppSpacing.md,
+        ),
         Text(
           value,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w700,
+          style: theme
+              .textTheme.bodyMedium
+              ?.copyWith(
+            fontWeight:
+                FontWeight.w700,
           ),
         ),
       ],
@@ -456,7 +747,12 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-class _ProfileActionTile extends StatelessWidget {
+// ============================================================
+// PROFILE ACTION TILE
+// ============================================================
+
+class _ProfileActionTile
+    extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
@@ -471,46 +767,68 @@ class _ProfileActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final theme =
+        Theme.of(context);
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius:
+          BorderRadius.circular(18),
       child: Padding(
-        padding: const EdgeInsets.symmetric(
+        padding:
+            const EdgeInsets.symmetric(
           vertical: AppSpacing.md,
         ),
         child: Row(
           children: [
             Icon(
               icon,
-              color: theme.colorScheme.primary,
+              color: theme
+                  .colorScheme.primary,
               size: 22,
             ),
-            const SizedBox(width: AppSpacing.md),
+            const SizedBox(
+              width: AppSpacing.md,
+            ),
             Expanded(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment:
+                    CrossAxisAlignment
+                        .start,
                 children: [
                   Text(
                     title,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+                    style: theme
+                        .textTheme
+                        .bodyMedium
+                        ?.copyWith(
+                      fontWeight:
+                          FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(
+                    height: 2,
+                  ),
                   Text(
                     subtitle,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                    style: theme
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(
+                      color: theme
+                          .colorScheme
+                          .onSurfaceVariant,
                     ),
                   ),
                 ],
               ),
             ),
             Icon(
-              Icons.chevron_right_rounded,
-              color: theme.colorScheme.onSurfaceVariant,
+              Icons
+                  .chevron_right_rounded,
+              color: theme
+                  .colorScheme
+                  .onSurfaceVariant,
             ),
           ],
         ),

@@ -119,8 +119,6 @@ class JsonHelpers {
       return null;
     }
 
-    // Даты вида 2026-06-18 используются в аналитике.
-    // Для них нельзя выполнять перевод часового пояса.
     final isDateOnly = RegExp(
       r'^\d{4}-\d{2}-\d{2}$',
     ).hasMatch(rawValue);
@@ -140,16 +138,6 @@ class JsonHelpers {
       );
     }
 
-    /*
-     * Правильный ответ backend:
-     *
-     * 2026-06-18T18:35:00.000000+00:00
-     * или:
-     * 2026-06-18T18:35:00.000000Z
-     *
-     * DateTime.parse распознаёт его как UTC,
-     * после чего toLocal переводит в часовой пояс устройства.
-     */
     final hasTimezone = RegExp(
       r'(Z|[+-]\d{2}:?\d{2})$',
       caseSensitive: false,
@@ -166,17 +154,6 @@ class JsonHelpers {
       return parsed.toLocal();
     }
 
-    /*
-     * Обратная совместимость.
-     *
-     * Старые ответы FastAPI могли возвращать UTC
-     * без Z и без +00:00:
-     *
-     * 2026-06-18T18:35:00.000000
-     *
-     * Поэтому принудительно интерпретируем такую строку
-     * как UTC, добавляя Z.
-     */
     final parsedAsUtc = DateTime.tryParse(
       '${rawValue}Z',
     );

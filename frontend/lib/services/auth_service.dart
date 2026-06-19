@@ -11,6 +11,20 @@ class AuthService {
 
   static UserModel? get cachedUser => _cachedUser;
 
+  // ============================================================
+  // CACHE USER
+  // ============================================================
+
+  static void updateCachedUser(
+    UserModel user,
+  ) {
+    _cachedUser = user;
+  }
+
+  // ============================================================
+  // REGISTER USER
+  // ============================================================
+
   static Future<UserModel> register({
     required String name,
     required String email,
@@ -33,10 +47,15 @@ class AuthService {
       rethrow;
     } catch (_) {
       throw const ApiException(
-        message: 'Не удалось зарегистрироваться. Попробуйте ещё раз.',
+        message:
+            'Не удалось зарегистрироваться. Попробуйте ещё раз.',
       );
     }
   }
+
+  // ============================================================
+  // REGISTER THERAPIST
+  // ============================================================
 
   static Future<UserModel> registerTherapist({
     required String name,
@@ -65,10 +84,15 @@ class AuthService {
       rethrow;
     } catch (_) {
       throw const ApiException(
-        message: 'Не удалось создать аккаунт специалиста.',
+        message:
+            'Не удалось создать аккаунт специалиста.',
       );
     }
   }
+
+  // ============================================================
+  // LOGIN
+  // ============================================================
 
   static Future<TokenModel> login({
     required String email,
@@ -90,32 +114,43 @@ class AuthService {
 
       if (token == null || token.trim().isEmpty) {
         throw const ApiException(
-          message: 'Сервер не вернул токен авторизации.',
+          message:
+              'Сервер не вернул токен авторизации.',
         );
       }
 
       _cachedUser = null;
-      await TokenStorage.saveToken(token);
+
+      await TokenStorage.saveToken(
+        token,
+      );
 
       return tokenModel;
     } on ApiException {
       rethrow;
     } catch (_) {
       throw const ApiException(
-        message: 'Не удалось войти. Проверьте email и пароль.',
+        message:
+            'Не удалось войти. Проверьте email и пароль.',
       );
     }
   }
+
+  // ============================================================
+  // GOOGLE LOGIN
+  // ============================================================
 
   static Future<TokenModel> loginWithGoogleIdToken({
     required String idToken,
   }) async {
     try {
-      final cleanIdToken = idToken.trim();
+      final cleanIdToken =
+          idToken.trim();
 
       if (cleanIdToken.isEmpty) {
         throw const ApiException(
-          message: 'Google не вернул токен авторизации.',
+          message:
+              'Google не вернул токен авторизации.',
         );
       }
 
@@ -133,32 +168,44 @@ class AuthService {
 
       if (token == null || token.trim().isEmpty) {
         throw const ApiException(
-          message: 'Сервер не вернул токен авторизации.',
+          message:
+              'Сервер не вернул токен авторизации.',
         );
       }
 
       _cachedUser = null;
-      await TokenStorage.saveToken(token);
+
+      await TokenStorage.saveToken(
+        token,
+      );
 
       return tokenModel;
     } on ApiException {
       rethrow;
     } catch (_) {
       throw const ApiException(
-        message: 'Не удалось войти через Google.',
+        message:
+            'Не удалось войти через Google.',
       );
     }
   }
 
+  // ============================================================
+  // GET CURRENT USER
+  // ============================================================
+
   static Future<UserModel> me({
     bool forceRefresh = false,
   }) async {
-    if (!forceRefresh && _cachedUser != null) {
+    if (!forceRefresh &&
+        _cachedUser != null) {
       return _cachedUser!;
     }
 
     try {
-      final response = await ApiClient.get('/auth/me');
+      final response = await ApiClient.get(
+        '/auth/me',
+      );
 
       final data = _safeMap(response.data);
       final user = UserModel.fromJson(data);
@@ -170,37 +217,57 @@ class AuthService {
       rethrow;
     } catch (_) {
       throw const ApiException(
-        message: 'Не удалось получить данные пользователя.',
+        message:
+            'Не удалось получить данные пользователя.',
       );
     }
   }
 
+  // ============================================================
+  // LOGOUT
+  // ============================================================
+
   static Future<void> logout() async {
     try {
       _cachedUser = null;
+
       await TokenStorage.clearToken();
     } catch (_) {
       throw const ApiException(
-        message: 'Не удалось выйти из аккаунта.',
+        message:
+            'Не удалось выйти из аккаунта.',
       );
     }
   }
+
+  // ============================================================
+  // IS LOGGED IN
+  // ============================================================
 
   static Future<bool> isLoggedIn() async {
     return TokenStorage.hasToken();
   }
 
-  static Map<String, dynamic> _safeMap(dynamic data) {
+  // ============================================================
+  // HELPERS
+  // ============================================================
+
+  static Map<String, dynamic> _safeMap(
+    dynamic data,
+  ) {
     if (data is Map<String, dynamic>) {
       return data;
     }
 
     if (data is Map) {
-      return Map<String, dynamic>.from(data);
+      return Map<String, dynamic>.from(
+        data,
+      );
     }
 
     throw const ApiException(
-      message: 'Некорректный ответ сервера.',
+      message:
+          'Некорректный ответ сервера.',
     );
   }
 }

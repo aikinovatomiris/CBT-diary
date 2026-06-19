@@ -65,49 +65,49 @@ final GoRouter appRouter = GoRouter(
       routes: [
         GoRoute(
           path: AppRoutes.home,
-          builder: (context, state) => const HomeScreen(),
+          pageBuilder: (context, state) => NoTransitionPage(child: const HomeScreen()),
         ),
         GoRoute(
           path: AppRoutes.diary,
-          builder: (context, state) => const DiaryListScreen(),
+          pageBuilder: (context, state) => NoTransitionPage(child: const DiaryListScreen()),
         ),
         GoRoute(
           path: AppRoutes.practices,
-          builder: (context, state) => const PracticesScreen(),
+          pageBuilder: (context, state) => NoTransitionPage(child: const PracticesScreen()),
         ),
         GoRoute(
           path: AppRoutes.therapistCatalog,
-          builder: (context, state) => const TherapistCatalogScreen(),
+          pageBuilder: (context, state) => NoTransitionPage(child: const TherapistCatalogScreen()),
         ),
         GoRoute(
           path: AppRoutes.profile,
-          builder: (context, state) => const ProfileScreen(),
+          pageBuilder: (context, state) => NoTransitionPage(child: const ProfileScreen()),
         ),
 
         GoRoute(
           path: AppRoutes.therapistHome,
-          builder: (context, state) => const TherapistHomeScreen(),
+          pageBuilder: (context, state) => NoTransitionPage(child: const TherapistHomeScreen()),
         ),
         GoRoute(
           path: AppRoutes.therapistCard,
-          builder: (context, state) => const TherapistProfileScreen(),
+          pageBuilder: (context, state) => NoTransitionPage(child: const TherapistProfileScreen()),
         ),
         GoRoute(
           path: AppRoutes.therapistMessages,
-          builder: (context, state) => const ConversationsListScreen(),
+          pageBuilder: (context, state) => NoTransitionPage(child: const ConversationsListScreen()),
         ),
 
         GoRoute(
           path: AppRoutes.adminHome,
-          builder: (context, state) => const AdminDashboardScreen(),
+          pageBuilder: (context, state) => NoTransitionPage(child: const AdminDashboardScreen()),
         ),
         GoRoute(
           path: AppRoutes.adminTherapists,
-          builder: (context, state) => const AdminPendingTherapistsScreen(),
+          pageBuilder: (context, state) => NoTransitionPage(child: const AdminPendingTherapistsScreen()),
         ),
         GoRoute(
           path: AppRoutes.adminStatistics,
-          builder: (context, state) => const AdminDashboardScreen(),
+          pageBuilder: (context, state) => NoTransitionPage(child: const AdminDashboardScreen()),
         ),
       ],
     ),

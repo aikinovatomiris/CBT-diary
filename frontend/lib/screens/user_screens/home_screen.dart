@@ -501,46 +501,74 @@ class _HomeContent extends StatelessWidget {
                       120,
                     ),
                     children: [
-                      Text(
-                        'Привет, $userName',
-                        style: theme
-                            .textTheme
-                            .headlineMedium
-                            ?.copyWith(
-                          letterSpacing: -0.7,
-                        ),
+                      Row(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Привет, $userName',
+                                  style: theme
+                                      .textTheme
+                                      .headlineMedium
+                                      ?.copyWith(
+                                    fontWeight:
+                                        FontWeight.w700,
+                                    letterSpacing: -0.35,
+                                  ),
+                                ),
+                                const SizedBox(
+                                  height: AppSpacing.sm,
+                                ),
+                                Text(
+                                  'Готовы разобраться в себе?',
+                                  style: theme
+                                      .textTheme
+                                      .bodyMedium
+                                      ?.copyWith(
+                                    color: theme
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(
+                            width: AppSpacing.md,
+                          ),
+                          const _MessagesActionShell(),
+                        ],
                       ),
                       const SizedBox(
                         height: AppSpacing.xxl,
                       ),
                       _LottieSessionOrb(
-                        isLoading:
-                            isCreatingSession,
+                        isLoading: isCreatingSession,
                         onTap: onCreateSession,
                       ),
                       const SizedBox(
                         height: AppSpacing.xl,
                       ),
                       _WeeklyDiaryActivity(
-                        entries:
-                            data.diaryEntries,
+                        entries: data.diaryEntries,
                       ),
-                      if (activeSession !=
-                          null) ...[
+                      if (activeSession != null) ...[
                         const SizedBox(
-                          height:
-                              AppSpacing.xxl,
+                          height: AppSpacing.xxl,
                         ),
                         _ContinueSessionCard(
-                          session:
-                              activeSession,
+                          session: activeSession,
                           onTap: () {
                             onContinueSession(
                               activeSession,
                             );
                           },
-                          formatDate:
-                              formatDate,
+                          formatDate: formatDate,
                           safeText: safeText,
                         ),
                       ],
@@ -549,8 +577,7 @@ class _HomeContent extends StatelessWidget {
                       ),
                       _AnalyticsOverviewCard(
                         data: data,
-                        onTap:
-                            onOpenAnalytics,
+                        onTap: onOpenAnalytics,
                       ),
                     ],
                   ),
@@ -558,6 +585,78 @@ class _HomeContent extends StatelessWidget {
               ),
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================
+// MESSAGES ACTION
+// ============================================================
+
+class _MessagesActionShell extends StatelessWidget {
+  const _MessagesActionShell();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    final isDark =
+        theme.brightness == Brightness.dark;
+
+    final backgroundColor = isDark
+        ? AppColors.darkSurface
+        : AppColors.lightSurface;
+
+    final borderColor = isDark
+        ? AppColors.darkBorder
+        : AppColors.lightBorder;
+
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: AppRadius.large,
+        border: Border.all(
+          color: borderColor,
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? AppColors.darkShadow.withOpacity(
+                    0.12,
+                  )
+                : AppColors.lightShadow.withOpacity(
+                    0.45,
+                  ),
+            blurRadius: 18,
+            offset: const Offset(
+              0,
+              8,
+            ),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: AppRadius.large,
+        child: InkWell(
+          onTap: () {
+            context.push(
+              AppRoutes.conversations,
+            );
+          },
+          borderRadius: AppRadius.large,
+          child: Center(
+            child: Icon(
+              Icons.chat_bubble_outline_rounded,
+              color: theme.colorScheme.primary,
+              size: 21,
+            ),
+          ),
         ),
       ),
     );
