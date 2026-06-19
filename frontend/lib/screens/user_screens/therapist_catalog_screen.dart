@@ -14,8 +14,8 @@ import '../../widgets/app_button.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/app_error_view.dart';
 import '../../widgets/app_loading.dart';
-import '../../widgets/app_text_field.dart';
 import '../../widgets/user_messages_action.dart';
+import '../../widgets/app_text_field.dart';
 
 class TherapistCatalogScreen
     extends StatefulWidget {

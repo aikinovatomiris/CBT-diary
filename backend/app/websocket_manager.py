@@ -1,11 +1,10 @@
 from collections import defaultdict
-from typing import Any, DefaultDict, Dict, Set
+from typing import Any, DefaultDict, Dict, Optional, Set
 
 from fastapi import WebSocket
 
 
 class ConversationConnectionManager:
-    
     def __init__(self) -> None:
         self._connections: DefaultDict[
             int,
@@ -79,9 +78,14 @@ class ConversationConnectionManager:
         self,
         conversation_id: int,
         payload: Dict[str, Any],
+        exclude_user_id: Optional[int] = None,
     ) -> None:
         """
-        Отправляет событие всем активным соединениям
+        Отправляет событие активным соединениям переписки.
+
+        exclude_user_id используется, чтобы не отправлять
+        сообщение обратно его отправителю. Отправитель уже
+        получает созданное сообщение через REST-ответ.
         """
 
         conversation_connections = (
@@ -96,9 +100,17 @@ class ConversationConnectionManager:
         for user_id, sockets in list(
             conversation_connections.items()
         ):
+            if (
+                exclude_user_id is not None
+                and user_id == exclude_user_id
+            ):
+                continue
+
             for websocket in list(sockets):
                 try:
-                    await websocket.send_json(payload)
+                    await websocket.send_json(
+                        payload
+                    )
                 except Exception:
                     disconnected_connections.append(
                         (
@@ -122,9 +134,8 @@ class ConversationConnectionManager:
         user_id: int,
         payload: Dict[str, Any],
     ) -> None:
-        
         """
-        Отправляет событие только одному участнику
+        Отправляет событие только одному участнику.
         """
 
         conversation_connections = (
@@ -145,7 +156,9 @@ class ConversationConnectionManager:
 
         for websocket in list(user_connections):
             try:
-                await websocket.send_json(payload)
+                await websocket.send_json(
+                    payload
+                )
             except Exception:
                 disconnected_connections.append(
                     websocket
@@ -183,4 +196,4 @@ class ConversationConnectionManager:
 
 conversation_connection_manager = (
     ConversationConnectionManager()
-)
+) 

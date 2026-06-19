@@ -607,14 +607,19 @@ class ConversationResponse(BaseModel):
     id: int
     user_id: int
     therapist_user_id: int
+
     created_at: datetime
     last_message_at: datetime
+
     user_last_read_at: Optional[datetime] = None
     therapist_last_read_at: Optional[datetime] = None
+
     user_name: Optional[str] = None
     therapist_name: Optional[str] = None
+
     last_message_text: Optional[str] = None
     last_message_sender_id: Optional[int] = None
+
     unread_count: int = 0
     has_unread: bool = False
 
@@ -634,8 +639,12 @@ class ConversationMessageResponse(BaseModel):
     conversation_id: int
     sender_id: int
     content: str
+
     shared_diary_entry_id: Optional[int] = None
+
     created_at: datetime
+
+    created_at_epoch_ms: int
 
 
 class ConversationReadResponse(BaseModel):

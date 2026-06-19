@@ -1992,7 +1992,9 @@ class _SoftIconBox
   const _SoftIconBox({
     required this.icon,
     required this.color,
+    // ignore: unused_element_parameter
     this.size = 40,
+    // ignore: unused_element_parameter
     this.iconSize = 20,
   });
 

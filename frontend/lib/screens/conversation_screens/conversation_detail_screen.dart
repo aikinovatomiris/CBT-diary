@@ -256,7 +256,6 @@ class _ConversationDetailScreenState
       return;
     }
 
-    //КОСТЫЛЬ!!!
     final optimisticMessage =
         ConversationMessageModel(
       id: null,
@@ -314,20 +313,8 @@ class _ConversationDetailScreenState
               optimisticIndex,
             );
           } else {
-            // Preserve optimistic local timestamp to avoid flicker when
-            // the server response's timezone/formatting leads to a
-            // briefly incorrect displayed time. We replace the message
-            // content/ids from server but keep the optimistic createdAt.
-            final preserved = ConversationMessageModel(
-              id: sentMessage.id,
-              conversationId: sentMessage.conversationId,
-              senderId: sentMessage.senderId,
-              content: sentMessage.content,
-              sharedDiaryEntryId: sentMessage.sharedDiaryEntryId,
-              createdAt: optimisticMessage.createdAt,
-            );
-
-            updatedMessages[optimisticIndex] = preserved;
+            updatedMessages[optimisticIndex] =
+                sentMessage;
           }
         } else if (!sentMessageAlreadyExists) {
           updatedMessages.add(

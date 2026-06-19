@@ -56,22 +56,17 @@ SHARED_DIARY_MESSAGE_CONTENT = (
 # DATETIME HELPERS
 # ============================================================
 
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
 def ensure_utc_datetime(
     value: datetime | None,
 ) -> datetime | None:
     """
-    В PostgreSQL даты проекта хранятся как naive UTC.
+    В базе проекта DateTime хранится как naive UTC.
 
-    Перед отправкой во Flutter явно добавляем timezone UTC,
-    чтобы FastAPI возвращал:
-
-        2026-06-18T18:35:00.000000+00:00
-
-    Вместо неоднозначного:
-
-        2026-06-18T18:35:00.000000
-
-    Значение в базе данных при этом не изменяется.
+    Перед отправкой клиенту значение явно помечается
+    часовым поясом UTC.
     """
 
     if value is None:
@@ -87,26 +82,72 @@ def ensure_utc_datetime(
     )
 
 
+def datetime_to_epoch_ms(
+    value: datetime | None,
+) -> int | None:
+    """
+    Возвращает Unix timestamp в миллисекундах.
+
+    Unix timestamp описывает абсолютный момент времени
+    и не зависит от часового пояса клиента или сервера.
+    """
+
+    utc_value = ensure_utc_datetime(value)
+
+    if utc_value is None:
+        return None
+
+    return int(
+        utc_value.timestamp() * 1000
+    )
+
+
 def build_message_response(
     message: ConversationMessage,
 ) -> Dict[str, Any]:
-    """
-    Единый формат сообщения для REST и WebSocket.
+    created_at = ensure_utc_datetime(
+        message.created_at
+    )
 
-    Благодаря этому POST, GET и WebSocket всегда возвращают
-    created_at в одном формате с явным UTC.
-    """
+    created_at_epoch_ms = (
+        datetime_to_epoch_ms(
+            message.created_at
+        )
+    )
+
+    if created_at is None:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_500_INTERNAL_SERVER_ERROR
+            ),
+            detail=(
+                "У сообщения отсутствует дата создания"
+            ),
+        )
+
+    if created_at_epoch_ms is None:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_500_INTERNAL_SERVER_ERROR
+            ),
+            detail=(
+                "Не удалось преобразовать дату сообщения"
+            ),
+        )
 
     return {
         "id": message.id,
-        "conversation_id": message.conversation_id,
+        "conversation_id": (
+            message.conversation_id
+        ),
         "sender_id": message.sender_id,
         "content": message.content,
         "shared_diary_entry_id": (
             message.shared_diary_entry_id
         ),
-        "created_at": ensure_utc_datetime(
-            message.created_at
+        "created_at": created_at,
+        "created_at_epoch_ms": (
+            created_at_epoch_ms
         ),
     }
 
@@ -431,7 +472,7 @@ def update_conversation_after_new_message(
 ) -> None:
     message_created_at = (
         message.created_at
-        or datetime.utcnow()
+        or utc_now()
     )
 
     conversation.last_message_at = (
@@ -476,7 +517,9 @@ def build_message_websocket_payload(
 
 async def broadcast_new_message(
     message: ConversationMessage,
+    sender_user_id: int,
 ) -> None:
+
     payload = build_message_websocket_payload(
         message
     )
@@ -488,6 +531,7 @@ async def broadcast_new_message(
                 message.conversation_id
             ),
             payload=payload,
+            exclude_user_id=sender_user_id,
         )
     )
 
@@ -679,7 +723,7 @@ def create_or_get_conversation(
             db=db,
         )
 
-    now = datetime.utcnow()
+    now = utc_now()
 
     conversation = Conversation(
         user_id=current_user.id,
@@ -863,6 +907,7 @@ async def send_conversation_message(
         sender_id=current_user.id,
         content=message_data.content,
         shared_diary_entry_id=None,
+        created_at=utc_now(),
     )
 
     db.add(message)
@@ -877,7 +922,10 @@ async def send_conversation_message(
     db.commit()
     db.refresh(message)
 
-    await broadcast_new_message(message)
+    await broadcast_new_message(
+        message=message,
+        sender_user_id=current_user.id,
+    )
 
     return build_message_response(
         message
@@ -909,8 +957,8 @@ def mark_conversation_read(
         current_user=current_user,
     )
 
-    read_at = datetime.utcnow()
-
+    read_at = utc_now()
+    
     mark_conversation_as_read(
         conversation=conversation,
         current_user=current_user,
@@ -990,6 +1038,7 @@ async def share_diary_entry_in_conversation(
         sender_id=current_user.id,
         content=SHARED_DIARY_MESSAGE_CONTENT,
         shared_diary_entry_id=diary_entry.id,
+        created_at=utc_now(),
     )
 
     db.add(message)
@@ -1004,7 +1053,10 @@ async def share_diary_entry_in_conversation(
     db.commit()
     db.refresh(message)
 
-    await broadcast_new_message(message)
+    await broadcast_new_message(
+        message=message,
+        sender_user_id=current_user.id,
+    )
 
     return build_message_response(
         message

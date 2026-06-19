@@ -15,6 +15,9 @@ from sqlalchemy.orm import relationship
 
 from app.database import Base
 
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
 
 class User(Base):
     __tablename__ = "users"
@@ -574,24 +577,24 @@ class Conversation(Base):
     )
 
     created_at = Column(
-        DateTime,
-        default=datetime.utcnow,
+        DateTime(timezone=True),
+        default=utc_now,
         nullable=False,
     )
 
     last_message_at = Column(
-        DateTime,
-        default=datetime.utcnow,
+        DateTime(timezone=True),
+        default=utc_now,
         nullable=False,
     )
 
     user_last_read_at = Column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=True,
     )
 
     therapist_last_read_at = Column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=True,
     )
 
@@ -662,8 +665,8 @@ class ConversationMessage(Base):
     )
 
     created_at = Column(
-        DateTime,
-        default=datetime.utcnow,
+        DateTime(timezone=True),
+        default=utc_now,
         nullable=False,
     )
 
