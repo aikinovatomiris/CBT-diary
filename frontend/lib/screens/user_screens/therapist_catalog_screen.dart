@@ -824,24 +824,11 @@ class _MessagesActionShell
         ),
         boxShadow: [
           BoxShadow(
-            color:
-                isDark
-                    ? AppColors
-                        .darkShadow
-                        .withOpacity(
-                          0.12,
-                        )
-                    : AppColors
-                        .lightShadow
-                        .withOpacity(
-                          0.45,
-                        ),
-            blurRadius: 18,
-            offset:
-                const Offset(
-              0,
-              8,
-            ),
+            color: isDark
+                ? AppColors.darkShadow.withOpacity(0.05)
+                : AppColors.lightShadow.withOpacity(0.12),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -1102,6 +1089,16 @@ class _TherapistCard
               ),
             ],
           ),
+          const SizedBox(
+            height: AppSpacing.md,
+          ),
+
+          _TherapistRatingSummary(
+            averageRating:
+                therapist.averageRating,
+            ratingsCount:
+                therapist.ratingsCount,
+          ),
           if (therapist
               .specializations
               .isNotEmpty) ...[
@@ -1194,6 +1191,96 @@ class _TherapistCard
     }
 
     return value.trim();
+  }
+}
+
+class _TherapistRatingSummary
+    extends StatelessWidget {
+  final double? averageRating;
+  final int ratingsCount;
+
+  const _TherapistRatingSummary({
+    required this.averageRating,
+    required this.ratingsCount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    final hasRating =
+        averageRating != null &&
+        ratingsCount > 0;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          hasRating
+              ? Icons.star_rounded
+              : Icons.star_border_rounded,
+          size: 19,
+          color: theme.colorScheme.primary,
+        ),
+        const SizedBox(
+          width: AppSpacing.xs,
+        ),
+        Text(
+          hasRating
+              ? averageRating!.toStringAsFixed(1)
+              : 'Нет оценок',
+          style: theme
+              .textTheme
+              .bodyMedium
+              ?.copyWith(
+            color: hasRating
+                ? theme.colorScheme.onSurface
+                : theme.colorScheme
+                    .onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        if (hasRating) ...[
+          const SizedBox(
+            width: AppSpacing.xs,
+          ),
+          Text(
+            '· ${_formatRatingsCount(ratingsCount)}',
+            style: theme
+                .textTheme
+                .bodySmall
+                ?.copyWith(
+              color: theme.colorScheme
+                  .onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  static String _formatRatingsCount(
+    int count,
+  ) {
+    final lastTwoDigits = count % 100;
+    final lastDigit = count % 10;
+
+    if (lastTwoDigits >= 11 &&
+        lastTwoDigits <= 14) {
+      return '$count оценок';
+    }
+
+    if (lastDigit == 1) {
+      return '$count оценка';
+    }
+
+    if (lastDigit >= 2 &&
+        lastDigit <= 4) {
+      return '$count оценки';
+    }
+
+    return '$count оценок';
   }
 }
 

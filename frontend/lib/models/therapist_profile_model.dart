@@ -26,10 +26,15 @@ class TherapistProfileModel {
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
-  /// Возвращается публичными endpoints /therapists.
-  /// Для обычного пользователя показывает,
-  /// добавлен ли специалист в его закладки.
   final bool isFavorite;
+
+  final double? averageRating;
+
+  final int ratingsCount;
+
+  final int? currentUserRating;
+
+  final bool canRate;
 
   const TherapistProfileModel({
     this.id,
@@ -49,6 +54,10 @@ class TherapistProfileModel {
     this.createdAt,
     this.updatedAt,
     this.isFavorite = false,
+    this.averageRating,
+    this.ratingsCount = 0,
+    this.currentUserRating,
+    this.canRate = false,
   });
 
   factory TherapistProfileModel.fromJson(
@@ -58,7 +67,9 @@ class TherapistProfileModel {
       id: JsonHelpers.parseInt(
         json['id'],
       ),
-      userId: _parseUserId(json),
+      userId: _parseUserId(
+        json,
+      ),
       fullName: JsonHelpers.parseString(
         json['full_name'],
       ),
@@ -110,6 +121,22 @@ class TherapistProfileModel {
             json['is_favorite'],
           ) ??
           false,
+      averageRating: JsonHelpers.parseDouble(
+        json['average_rating'],
+      ),
+      ratingsCount:
+          JsonHelpers.parseInt(
+            json['ratings_count'],
+          ) ??
+          0,
+      currentUserRating: JsonHelpers.parseInt(
+        json['current_user_rating'],
+      ),
+      canRate:
+          JsonHelpers.parseBool(
+            json['can_rate'],
+          ) ??
+          false,
     );
   }
 
@@ -131,6 +158,10 @@ class TherapistProfileModel {
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isFavorite,
+    double? averageRating,
+    int? ratingsCount,
+    int? currentUserRating,
+    bool? canRate,
   }) {
     return TherapistProfileModel(
       id: id ?? this.id,
@@ -163,6 +194,44 @@ class TherapistProfileModel {
           updatedAt ?? this.updatedAt,
       isFavorite:
           isFavorite ?? this.isFavorite,
+      averageRating:
+          averageRating ?? this.averageRating,
+      ratingsCount:
+          ratingsCount ?? this.ratingsCount,
+      currentUserRating:
+          currentUserRating ??
+          this.currentUserRating,
+      canRate:
+          canRate ?? this.canRate,
+    );
+  }
+
+  TherapistProfileModel copyWithRating(
+    TherapistRatingModel rating,
+  ) {
+    return TherapistProfileModel(
+      id: id,
+      userId: userId,
+      fullName: fullName,
+      qualification: qualification,
+      therapyApproaches: therapyApproaches,
+      specializations: specializations,
+      description: description,
+      price: price,
+      contacts: contacts,
+      city: city,
+      onlineAvailable: onlineAvailable,
+      status: status,
+      rejectionReason: rejectionReason,
+      photoUrl: photoUrl,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      isFavorite: isFavorite,
+      averageRating: rating.averageRating,
+      ratingsCount: rating.ratingsCount,
+      currentUserRating:
+          rating.currentUserRating,
+      canRate: rating.canRate,
     );
   }
 
@@ -189,6 +258,11 @@ class TherapistProfileModel {
       'updated_at':
           updatedAt?.toIso8601String(),
       'is_favorite': isFavorite,
+      'average_rating': averageRating,
+      'ratings_count': ratingsCount,
+      'current_user_rating':
+          currentUserRating,
+      'can_rate': canRate,
     };
   }
 
@@ -286,6 +360,48 @@ class TherapistProfileModel {
         status == 'draft';
   }
 
+  bool get hasRating {
+    return averageRating != null &&
+        ratingsCount > 0;
+  }
+
+  bool get hasCurrentUserRating {
+    return currentUserRating != null &&
+        currentUserRating! >= 1 &&
+        currentUserRating! <= 5;
+  }
+
+  String get formattedAverageRating {
+    if (!hasRating) {
+      return 'Нет оценок';
+    }
+
+    return averageRating!.toStringAsFixed(1);
+  }
+
+  String get ratingsCountText {
+    final count = ratingsCount;
+
+    final lastTwoDigits = count % 100;
+    final lastDigit = count % 10;
+
+    if (lastTwoDigits >= 11 &&
+        lastTwoDigits <= 14) {
+      return '$count оценок';
+    }
+
+    if (lastDigit == 1) {
+      return '$count оценка';
+    }
+
+    if (lastDigit >= 2 &&
+        lastDigit <= 4) {
+      return '$count оценки';
+    }
+
+    return '$count оценок';
+  }
+
   bool get isEmptyProfile {
     final hasText = [
       fullName,
@@ -304,5 +420,89 @@ class TherapistProfileModel {
         specializations.isEmpty &&
         (contacts == null ||
             contacts!.isEmpty);
+  }
+}
+
+class TherapistRatingModel {
+  final String? message;
+
+  final int? therapistProfileId;
+
+  final int? rating;
+
+  final double? averageRating;
+  final int ratingsCount;
+
+  final int? currentUserRating;
+  final bool canRate;
+
+  const TherapistRatingModel({
+    this.message,
+    this.therapistProfileId,
+    this.rating,
+    this.averageRating,
+    this.ratingsCount = 0,
+    this.currentUserRating,
+    this.canRate = false,
+  });
+
+  factory TherapistRatingModel.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return TherapistRatingModel(
+      message: JsonHelpers.parseString(
+        json['message'],
+      ),
+      therapistProfileId:
+          JsonHelpers.parseInt(
+        json['therapist_profile_id'],
+      ),
+      rating: JsonHelpers.parseInt(
+        json['rating'],
+      ),
+      averageRating:
+          JsonHelpers.parseDouble(
+        json['average_rating'],
+      ),
+      ratingsCount:
+          JsonHelpers.parseInt(
+            json['ratings_count'],
+          ) ??
+          0,
+      currentUserRating:
+          JsonHelpers.parseInt(
+        json['current_user_rating'],
+      ),
+      canRate:
+          JsonHelpers.parseBool(
+            json['can_rate'],
+          ) ??
+          false,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'message': message,
+      'therapist_profile_id':
+          therapistProfileId,
+      'rating': rating,
+      'average_rating': averageRating,
+      'ratings_count': ratingsCount,
+      'current_user_rating':
+          currentUserRating,
+      'can_rate': canRate,
+    };
+  }
+
+  bool get hasRating {
+    return averageRating != null &&
+        ratingsCount > 0;
+  }
+
+  bool get hasCurrentUserRating {
+    return currentUserRating != null &&
+        currentUserRating! >= 1 &&
+        currentUserRating! <= 5;
   }
 }

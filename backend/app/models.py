@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     ForeignKey,
@@ -14,6 +15,7 @@ from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
@@ -83,6 +85,12 @@ class User(Base):
 
     therapist_favorites = relationship(
         "TherapistFavorite",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+
+    therapist_ratings = relationship(
+        "TherapistRating",
         back_populates="user",
         cascade="all, delete-orphan",
     )
@@ -209,6 +217,12 @@ class TherapistProfile(Base):
         cascade="all, delete-orphan",
     )
 
+    ratings = relationship(
+        "TherapistRating",
+        back_populates="therapist_profile",
+        cascade="all, delete-orphan",
+    )
+
     @property
     def photo_url(self) -> str | None:
         if not self.photo_path:
@@ -262,7 +276,6 @@ class TherapistCertificate(Base):
 
 
 class TherapistFavorite(Base):
-
     __tablename__ = "therapist_favorites"
 
     __table_args__ = (
@@ -311,6 +324,76 @@ class TherapistFavorite(Base):
     therapist_profile = relationship(
         "TherapistProfile",
         back_populates="favorited_by_users",
+    )
+
+
+class TherapistRating(Base):
+    __tablename__ = "therapist_ratings"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "therapist_profile_id",
+            name="uq_user_therapist_rating",
+        ),
+        CheckConstraint(
+            "rating >= 1 AND rating <= 5",
+            name="ck_therapist_rating_range",
+        ),
+    )
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
+
+    user_id = Column(
+        Integer,
+        ForeignKey(
+            "users.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+        index=True,
+    )
+
+    therapist_profile_id = Column(
+        Integer,
+        ForeignKey(
+            "therapist_profiles.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+        index=True,
+    )
+
+    rating = Column(
+        Integer,
+        nullable=False,
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        default=utc_now,
+        nullable=False,
+    )
+
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=utc_now,
+        onupdate=utc_now,
+        nullable=False,
+    )
+
+    user = relationship(
+        "User",
+        back_populates="therapist_ratings",
+    )
+
+    therapist_profile = relationship(
+        "TherapistProfile",
+        back_populates="ratings",
     )
 
 
@@ -385,7 +468,7 @@ class CBTSession(Base):
         JSON,
         nullable=True,
     )
-    
+
     wellbeing_score_after = Column(
         Integer,
         nullable=True,
@@ -685,7 +768,8 @@ class ConversationMessage(Base):
         "DiaryEntry",
         back_populates="shared_in_conversation_messages",
     )
-    
+
+
 class AppNotification(Base):
     __tablename__ = "app_notifications"
 

@@ -12,7 +12,6 @@ import '../../widgets/app_button.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/app_error_view.dart';
 import '../../widgets/app_loading.dart';
-import '../../widgets/user_messages_action.dart';
 
 class TherapistDetailScreen
     extends StatefulWidget {
@@ -40,6 +39,9 @@ class _TherapistDetailScreenState
       false;
 
   bool _isFavoriteUpdating =
+      false;
+
+  bool _isRatingUpdating =
       false;
 
   @override
@@ -189,6 +191,113 @@ class _TherapistDetailScreenState
     }
   }
 
+  // ============================================================
+// RATING
+// ============================================================
+
+  Future<void> _setRating(
+    TherapistProfileModel therapist,
+    int rating,
+  ) async {
+    final currentRole =
+        AuthService.cachedUser?.role;
+
+    if (currentRole != 'user') {
+      return;
+    }
+
+    final profileId = therapist.id;
+
+    if (profileId == null ||
+        _isRatingUpdating ||
+        !therapist.canRate) {
+      return;
+    }
+
+    final previousTherapist = therapist;
+
+    /*
+    * Сразу визуально заполняем выбранные звёзды.
+    * Средний рейтинг пока не пересчитываем локально:
+    * его точное значение вернёт backend.
+    */
+    final optimisticTherapist =
+        therapist.copyWith(
+      currentUserRating: rating,
+    );
+
+    setState(() {
+      _isRatingUpdating = true;
+
+      _therapistFuture = Future.value(
+        optimisticTherapist,
+      );
+    });
+
+    try {
+      final ratingResult =
+          await TherapistService
+              .setTherapistRating(
+        profileId: profileId,
+        rating: rating,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      final updatedTherapist =
+          optimisticTherapist.copyWithRating(
+        ratingResult,
+      );
+
+      setState(() {
+        _therapistFuture = Future.value(
+          updatedTherapist,
+        );
+      });
+
+      _showSnackBar(
+        ratingResult.message ??
+            'Оценка сохранена.',
+      );
+    } on ApiException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _therapistFuture = Future.value(
+          previousTherapist,
+        );
+      });
+
+      _showSnackBar(
+        error.message,
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _therapistFuture = Future.value(
+          previousTherapist,
+        );
+      });
+
+      _showSnackBar(
+        'Не удалось сохранить оценку.',
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRatingUpdating = false;
+        });
+      }
+    }
+  }
+
   Future<void> _startConversation(
     TherapistProfileModel therapist,
   ) async {
@@ -291,9 +400,6 @@ class _TherapistDetailScreenState
               const Text(
             'Специалист',
           ),
-          actions: const [
-            UserMessagesAction(),
-          ],
         ),
         body:
             const AppErrorView(
@@ -335,9 +441,6 @@ class _TherapistDetailScreenState
                   const Text(
                 'Специалист',
               ),
-              actions: const [
-                UserMessagesAction(),
-              ],
             ),
             body: AppErrorView(
               message: message,
@@ -356,9 +459,6 @@ class _TherapistDetailScreenState
                   const Text(
                 'Специалист',
               ),
-              actions: const [
-                UserMessagesAction(),
-              ],
             ),
             body: AppErrorView(
               message:
@@ -374,6 +474,8 @@ class _TherapistDetailScreenState
               _isStartingConversation,
           isFavoriteUpdating:
               _isFavoriteUpdating,
+          isRatingUpdating:
+              _isRatingUpdating,
           onMessage: () {
             _startConversation(
               therapist,
@@ -382,6 +484,12 @@ class _TherapistDetailScreenState
           onToggleFavorite: () {
             _toggleFavorite(
               therapist,
+            );
+          },
+          onRate: (rating) {
+            _setRating(
+              therapist,
+              rating,
             );
           },
         );
@@ -397,18 +505,22 @@ class _TherapistDetailContent
 
   final bool isStartingConversation;
   final bool isFavoriteUpdating;
+  final bool isRatingUpdating;
 
   final VoidCallback onMessage;
   final VoidCallback onToggleFavorite;
+
+  final ValueChanged<int> onRate;
 
   const _TherapistDetailContent({
     required this.therapist,
     required this.isStartingConversation,
     required this.isFavoriteUpdating,
+    required this.isRatingUpdating,
     required this.onMessage,
     required this.onToggleFavorite,
+    required this.onRate,
   });
-
   @override
   Widget build(BuildContext context) {
     final theme =
@@ -475,7 +587,6 @@ class _TherapistDetailContent
                               .primary,
                         ),
             ),
-          const UserMessagesAction(),
         ],
       ),
       body: SafeArea(
@@ -581,6 +692,16 @@ class _TherapistDetailContent
                                   .onSurfaceVariant,
                             ),
                           ),
+                          const SizedBox(
+                            height: AppSpacing.md,
+                          ),
+
+                          _TherapistRatingSummary(
+                            averageRating:
+                                therapist.averageRating,
+                            ratingsCount:
+                                therapist.ratingsCount,
+                          ),
                           if (canUseFavorites) ...[
                             const SizedBox(
                               height:
@@ -638,15 +759,27 @@ class _TherapistDetailContent
                       ),
                     ),
                     const SizedBox(
-                      height:
-                          AppSpacing.lg,
+                      height: AppSpacing.lg,
                     ),
+                    if (currentRole == 'user' &&
+                        therapist.canRate) ...[
+                      _TherapistUserRatingCard(
+                        selectedRating:
+                            therapist.currentUserRating,
+                        isLoading:
+                            isRatingUpdating,
+                        onRate:
+                            onRate,
+                      ),
+                      const SizedBox(
+                        height: AppSpacing.lg,
+                      ),
+                    ],
                     _SectionCard(
                       title:
                           'Направления терапии',
                       content: _listText(
-                        therapist
-                            .therapyApproaches,
+                        therapist.therapyApproaches,
                       ),
                     ),
                     _SectionCard(
@@ -950,6 +1083,258 @@ class _TherapistDetailContent
     return trimmed[0]
             .toUpperCase() +
         trimmed.substring(1);
+  }
+}
+
+class _TherapistRatingSummary
+    extends StatelessWidget {
+  final double? averageRating;
+  final int ratingsCount;
+
+  const _TherapistRatingSummary({
+    required this.averageRating,
+    required this.ratingsCount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    final hasRating =
+        averageRating != null &&
+        ratingsCount > 0;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary
+            .withValues(
+          alpha: 0.09,
+        ),
+        borderRadius: BorderRadius.circular(
+          999,
+        ),
+        border: Border.all(
+          color: theme.colorScheme.primary
+              .withValues(
+            alpha: 0.14,
+          ),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            hasRating
+                ? Icons.star_rounded
+                : Icons.star_border_rounded,
+            size: 20,
+            color:
+                theme.colorScheme.primary,
+          ),
+          const SizedBox(
+            width: AppSpacing.xs,
+          ),
+          Text(
+            hasRating
+                ? averageRating!
+                    .toStringAsFixed(1)
+                : 'Нет оценок',
+            style: theme
+                .textTheme
+                .bodyMedium
+                ?.copyWith(
+              color: theme
+                  .colorScheme.onSurface,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          if (hasRating) ...[
+            const SizedBox(
+              width: AppSpacing.xs,
+            ),
+            Text(
+              '· ${_formatRatingsCount(ratingsCount)}',
+              style: theme
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(
+                color: theme.colorScheme
+                    .onSurfaceVariant,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  static String _formatRatingsCount(
+    int count,
+  ) {
+    final lastTwoDigits = count % 100;
+    final lastDigit = count % 10;
+
+    if (lastTwoDigits >= 11 &&
+        lastTwoDigits <= 14) {
+      return '$count оценок';
+    }
+
+    if (lastDigit == 1) {
+      return '$count оценка';
+    }
+
+    if (lastDigit >= 2 &&
+        lastDigit <= 4) {
+      return '$count оценки';
+    }
+
+    return '$count оценок';
+  }
+}
+
+class _TherapistUserRatingCard
+    extends StatelessWidget {
+  final int? selectedRating;
+  final bool isLoading;
+  final ValueChanged<int> onRate;
+
+  const _TherapistUserRatingCard({
+    required this.selectedRating,
+    required this.isLoading,
+    required this.onRate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    final hasSelectedRating =
+        selectedRating != null &&
+        selectedRating! >= 1 &&
+        selectedRating! <= 5;
+
+    return AppCard(
+      hasShadow: false,
+      child: Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Ваша оценка',
+                  style: theme
+                      .textTheme
+                      .titleLarge
+                      ?.copyWith(
+                    fontWeight:
+                        FontWeight.w800,
+                  ),
+                ),
+              ),
+              if (isLoading)
+                SizedBox(
+                  width: 19,
+                  height: 19,
+                  child:
+                      CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: theme
+                        .colorScheme.primary,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(
+            height: AppSpacing.sm,
+          ),
+          Text(
+            hasSelectedRating
+                ? 'Вы поставили $selectedRating из 5. Оценку можно изменить.'
+                : 'Оцените работу специалиста по пятибалльной шкале.',
+            style: theme
+                .textTheme
+                .bodyMedium
+                ?.copyWith(
+              color: theme.colorScheme
+                  .onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(
+            height: AppSpacing.lg,
+          ),
+          Row(
+            mainAxisAlignment:
+                MainAxisAlignment.center,
+            children: List.generate(
+              5,
+              (index) {
+                final value = index + 1;
+
+                final isSelected =
+                    value <=
+                    (selectedRating ?? 0);
+
+                return Semantics(
+                  button: true,
+                  label:
+                      'Поставить оценку $value из 5',
+                  child: IconButton(
+                    tooltip:
+                        '$value из 5',
+                    onPressed: isLoading
+                        ? null
+                        : () {
+                            onRate(value);
+                          },
+                    padding:
+                        const EdgeInsets.all(
+                      AppSpacing.xs,
+                    ),
+                    constraints:
+                        const BoxConstraints(
+                      minWidth: 48,
+                      minHeight: 48,
+                    ),
+                    icon: AnimatedSwitcher(
+                      duration: const Duration(
+                        milliseconds: 160,
+                      ),
+                      child: Icon(
+                        isSelected
+                            ? Icons
+                                .star_rounded
+                            : Icons
+                                .star_border_rounded,
+                        key: ValueKey<bool>(
+                          isSelected,
+                        ),
+                        size: 34,
+                        color: isSelected
+                            ? theme.colorScheme
+                                .primary
+                            : theme.colorScheme
+                                .onSurfaceVariant
+                                .withValues(
+                              alpha: 0.62,
+                            ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

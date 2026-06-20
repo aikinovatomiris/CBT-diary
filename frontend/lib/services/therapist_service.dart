@@ -455,11 +455,86 @@ class TherapistService {
   }
 
   // ============================================================
+  // RATINGS
+  // ============================================================
+
+  /// Загружает средний рейтинг, количество оценок,
+  /// оценку текущего пользователя и право оценивания.
+  static Future<TherapistRatingModel>
+      getTherapistRatingStatus(
+    int profileId,
+  ) async {
+    try {
+      final response =
+          await ApiClient.get(
+        '/therapists/$profileId/rating-status',
+      );
+
+      final data = _safeMap(
+        response.data,
+      );
+
+      return TherapistRatingModel.fromJson(
+        data,
+      );
+    } on ApiException {
+      rethrow;
+    } catch (_) {
+      throw const ApiException(
+        message:
+            'Не удалось загрузить рейтинг специалиста.',
+      );
+    }
+  }
+
+  static Future<TherapistRatingModel>
+      setTherapistRating({
+    required int profileId,
+    required int rating,
+  }) async {
+    if (rating < 1 || rating > 5) {
+      throw const ApiException(
+        message:
+            'Оценка должна быть от 1 до 5.',
+      );
+    }
+
+    try {
+      final response =
+          await ApiClient.dio.put(
+        '/therapists/$profileId/rating',
+        data: {
+          'rating': rating,
+        },
+      );
+
+      final data = _safeMap(
+        response.data,
+      );
+
+      return TherapistRatingModel.fromJson(
+        data,
+      );
+    } on DioException catch (error) {
+      throw ApiException.fromDioException(
+        error,
+      );
+    } on ApiException {
+      rethrow;
+    } catch (_) {
+      throw const ApiException(
+        message:
+            'Не удалось сохранить оценку специалиста.',
+      );
+    }
+  }
+
+  // ============================================================
   // HELPERS
   // ============================================================
 
   static List<TherapistProfileModel>
-  _parseTherapistList(
+      _parseTherapistList(
     dynamic data,
   ) {
     if (data is List) {
@@ -516,7 +591,7 @@ class TherapistService {
   }
 
   static Future<MultipartFile>
-  _multipartFileFromPlatformFile(
+      _multipartFileFromPlatformFile(
     PlatformFile file,
   ) async {
     final fileName =

@@ -14,6 +14,7 @@ import '../../services/api_exception.dart';
 import '../../services/auth_service.dart';
 import '../../services/cbt_service.dart';
 import '../../services/diary_service.dart';
+import '../../services/notification_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
 import '../../theme/app_spacing.dart';
@@ -178,17 +179,62 @@ class _HomeData {
 class _HomeScreenState extends State<HomeScreen> {
   late Future<_HomeData> _homeFuture;
 
+  final NotificationController
+      _notificationController =
+      NotificationController.instance;
+
   bool _isCreatingSession = false;
+
+  int _unreadNotificationsCount = 0;
 
   @override
   void initState() {
     super.initState();
 
     _homeFuture = _loadHomeData();
+
+    _notificationController.addListener(
+      _handleNotificationControllerChanged,
+    );
+
+    _unreadNotificationsCount =
+        _notificationController.unreadCount;
+
+    _notificationController
+        .refreshUnreadCount();
+  }
+
+  @override
+  void dispose() {
+    _notificationController.removeListener(
+      _handleNotificationControllerChanged,
+    );
+
+    super.dispose();
+  }
+
+  void _handleNotificationControllerChanged() {
+    if (!mounted) {
+      return;
+    }
+
+    final newCount =
+        _notificationController.unreadCount;
+
+    if (newCount ==
+        _unreadNotificationsCount) {
+      return;
+    }
+
+    setState(() {
+      _unreadNotificationsCount =
+          newCount;
+    });
   }
 
   Future<_HomeData> _loadHomeData() async {
-    final results = await Future.wait<dynamic>(
+    final results =
+        await Future.wait<dynamic>(
       [
         AuthService.me(),
         AnalyticsService.getDetails(),
@@ -213,7 +259,8 @@ class _HomeScreenState extends State<HomeScreen> {
       summary: analytics.summary,
       distortions: analytics.distortions,
       techniques: analytics.techniques,
-      wellbeingWeek: analytics.wellbeingWeek,
+      wellbeingWeek:
+          analytics.wellbeingWeek,
       resilience: analytics.resilience,
       diaryEntries: diaryEntries,
       sessions: sessions,
@@ -225,7 +272,15 @@ class _HomeScreenState extends State<HomeScreen> {
       _homeFuture = _loadHomeData();
     });
 
-    await _homeFuture;
+    await Future.wait<void>(
+      [
+        _homeFuture.then(
+          (_) {},
+        ),
+        _notificationController
+            .refreshUnreadCount(),
+      ],
+    );
   }
 
   Future<void> _createSession() async {
@@ -248,7 +303,8 @@ class _HomeScreenState extends State<HomeScreen> {
       final sessionId = session.id;
 
       if (sessionId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context)
+            .showSnackBar(
           const SnackBar(
             content: Text(
               'Сервер не вернул ID новой сессии.',
@@ -273,9 +329,12 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         SnackBar(
-          content: Text(error.message),
+          content: Text(
+            error.message,
+          ),
         ),
       );
     } catch (_) {
@@ -283,7 +342,8 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         const SnackBar(
           content: Text(
             'Не удалось создать новую сессию.',
@@ -305,7 +365,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final sessionId = session.id;
 
     if (sessionId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         const SnackBar(
           content: Text(
             'У активной сессии нет ID.',
@@ -339,7 +400,22 @@ class _HomeScreenState extends State<HomeScreen> {
     await _refresh();
   }
 
-  String _formatDate(DateTime? date) {
+  Future<void> _openNotifications() async {
+    await context.push(
+      AppRoutes.notifications,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    await _notificationController
+        .refreshUnreadCount();
+  }
+
+  String _formatDate(
+    DateTime? date,
+  ) {
     if (date == null) {
       return 'Нет данных';
     }
@@ -354,7 +430,8 @@ class _HomeScreenState extends State<HomeScreen> {
         .toString()
         .padLeft(2, '0');
 
-    final year = localDate.year.toString();
+    final year =
+        localDate.year.toString();
 
     return '$day.$month.$year';
   }
@@ -375,20 +452,26 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return FutureBuilder<_HomeData>(
       future: _homeFuture,
-      builder: (context, snapshot) {
+      builder: (
+        context,
+        snapshot,
+      ) {
         if (snapshot.connectionState ==
             ConnectionState.waiting) {
           return const Scaffold(
             body: AppLoading(
-              text: 'Загрузка главной...',
+              text:
+                  'Загрузка главной...',
             ),
           );
         }
 
         if (snapshot.hasError) {
-          final error = snapshot.error;
+          final error =
+              snapshot.error;
 
-          final message = error is ApiException
+          final message =
+              error is ApiException
               ? error.message
               : 'Не удалось загрузить главный экран.';
 
@@ -414,11 +497,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
         return _HomeContent(
           data: data,
-          isCreatingSession: _isCreatingSession,
+          isCreatingSession:
+              _isCreatingSession,
           onRefresh: _refresh,
-          onCreateSession: _createSession,
-          onContinueSession: _continueSession,
-          onOpenAnalytics: _openAnalytics,
+          onCreateSession:
+              _createSession,
+          onContinueSession:
+              _continueSession,
+          onOpenAnalytics:
+              _openAnalytics,
+          onOpenNotifications:
+              _openNotifications,
+          unreadNotificationsCount:
+              _unreadNotificationsCount,
           formatDate: _formatDate,
           safeText: _safeText,
         );
@@ -437,11 +528,16 @@ class _HomeContent extends StatelessWidget {
   final VoidCallback onCreateSession;
 
   final ValueChanged<CBTSessionModel>
-  onContinueSession;
+      onContinueSession;
 
   final VoidCallback onOpenAnalytics;
 
-  final String Function(DateTime?) formatDate;
+  final VoidCallback onOpenNotifications;
+
+  final int unreadNotificationsCount;
+
+  final String Function(DateTime?)
+      formatDate;
 
   final String Function(
     String?, {
@@ -456,6 +552,8 @@ class _HomeContent extends StatelessWidget {
     required this.onCreateSession,
     required this.onContinueSession,
     required this.onOpenAnalytics,
+    required this.onOpenNotifications,
+    required this.unreadNotificationsCount,
     required this.formatDate,
     required this.safeText,
   });
@@ -541,7 +639,11 @@ class _HomeContent extends StatelessWidget {
                           const SizedBox(
                             width: AppSpacing.md,
                           ),
-                          const _MessagesActionShell(),
+                          _NotificationsActionShell(
+                            hasUnread:
+                                unreadNotificationsCount > 0,
+                            onTap: onOpenNotifications,
+                          ),
                         ],
                       ),
                       const SizedBox(
@@ -592,18 +694,27 @@ class _HomeContent extends StatelessWidget {
 }
 
 // ============================================================
-// MESSAGES ACTION
+// NOTIFICATIONS ACTION
 // ============================================================
 
-class _MessagesActionShell extends StatelessWidget {
-  const _MessagesActionShell();
+class _NotificationsActionShell
+    extends StatelessWidget {
+  final bool hasUnread;
+
+  final VoidCallback onTap;
+
+  const _NotificationsActionShell({
+    required this.hasUnread,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     final isDark =
-        theme.brightness == Brightness.dark;
+        theme.brightness ==
+        Brightness.dark;
 
     final backgroundColor = isDark
         ? AppColors.darkSurface
@@ -613,52 +724,72 @@ class _MessagesActionShell extends StatelessWidget {
         ? AppColors.darkBorder
         : AppColors.lightBorder;
 
-    return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: AppRadius.large,
-        border: Border.all(
-          color: borderColor,
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? AppColors.darkShadow.withOpacity(
-                    0.12,
-                  )
-                : AppColors.lightShadow.withOpacity(
-                    0.45,
-                  ),
-            blurRadius: 18,
-            offset: const Offset(
-              0,
-              8,
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius:
+                AppRadius.large,
+            border: Border.all(
+              color: borderColor,
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: isDark
+                    ? AppColors.darkShadow.withOpacity(0.05)
+                    : AppColors.lightShadow.withOpacity(0.12),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius:
+                AppRadius.large,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius:
+                  AppRadius.large,
+              child: Center(
+                child: Icon(
+                  Icons
+                      .notifications_none_rounded,
+                  color: theme
+                      .colorScheme.primary,
+                  size: 22,
+                ),
+              ),
             ),
           ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: AppRadius.large,
-        child: InkWell(
-          onTap: () {
-            context.push(
-              AppRoutes.conversations,
-            );
-          },
-          borderRadius: AppRadius.large,
-          child: Center(
-            child: Icon(
-              Icons.chat_bubble_outline_rounded,
-              color: theme.colorScheme.primary,
-              size: 21,
+        ),
+
+        // Точка непрочитанных уведомлений.
+        if (hasUnread)
+          Positioned(
+            top: -2,
+            right: -2,
+            child: Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: theme
+                    .colorScheme.primary,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: theme
+                      .scaffoldBackgroundColor,
+                  width: 2,
+                ),
+              ),
             ),
           ),
-        ),
-      ),
+      ],
     );
   }
 }

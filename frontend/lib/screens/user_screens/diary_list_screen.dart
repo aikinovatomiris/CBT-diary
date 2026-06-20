@@ -146,6 +146,8 @@ class _DiaryListScreenState extends State<DiaryListScreen> {
   Future<void> _openDateFilter() async {
     final selectedMode = await showModalBottomSheet<_DateFilterMode>(
       context: context,
+      useRootNavigator: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
         return const _DateFilterModeSheet();

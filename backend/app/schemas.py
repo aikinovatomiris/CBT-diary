@@ -249,6 +249,12 @@ class PublicTherapistProfileResponse(BaseModel):
 
     is_favorite: bool = False
 
+    average_rating: Optional[float] = None
+    ratings_count: int = 0
+
+    current_user_rating: Optional[int] = None
+    can_rate: bool = False
+
 
 # =========================
 # Therapist favorites schemas
@@ -269,6 +275,40 @@ class TherapistFavoriteActionResponse(BaseModel):
     message: str
     therapist_profile_id: int
     is_favorite: bool
+
+
+# =========================
+# Therapist rating schemas
+# =========================
+
+class TherapistRatingRequest(BaseModel):
+    rating: int = Field(
+        ge=1,
+        le=5,
+    )
+
+
+class TherapistRatingStatusResponse(BaseModel):
+    therapist_profile_id: int
+
+    average_rating: Optional[float] = None
+    ratings_count: int = 0
+
+    current_user_rating: Optional[int] = None
+    can_rate: bool = False
+
+
+class TherapistRatingActionResponse(BaseModel):
+    message: str
+    therapist_profile_id: int
+
+    rating: int
+
+    average_rating: Optional[float] = None
+    ratings_count: int = 0
+
+    current_user_rating: Optional[int] = None
+    can_rate: bool = False
 
 
 # =========================
@@ -656,7 +696,8 @@ class ConversationReadResponse(BaseModel):
 
 class ShareDiaryEntryRequest(BaseModel):
     diary_entry_id: int
-    
+
+
 # =========================
 # App notification schemas
 # =========================
