@@ -491,9 +491,6 @@ class _TherapistProfileScreenState extends State<TherapistProfileScreen> {
         _isEditing || profile.isDraft || profile.isRejected || profile.isEmptyProfile;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Анкета специалиста'),
-      ),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {

@@ -17,9 +17,6 @@ class ConversationConnectionManager:
         user_id: int,
         websocket: WebSocket,
     ) -> None:
-        """
-        Принимает WebSocket и сохраняет соединение.
-        """
 
         await websocket.accept()
 
@@ -42,9 +39,6 @@ class ConversationConnectionManager:
         user_id: int,
         websocket: WebSocket,
     ) -> None:
-        """
-        Удаляет закрытое соединение из памяти.
-        """
 
         conversation_connections = (
             self._connections.get(conversation_id)
@@ -80,13 +74,6 @@ class ConversationConnectionManager:
         payload: Dict[str, Any],
         exclude_user_id: Optional[int] = None,
     ) -> None:
-        """
-        Отправляет событие активным соединениям переписки.
-
-        exclude_user_id используется, чтобы не отправлять
-        сообщение обратно его отправителю. Отправитель уже
-        получает созданное сообщение через REST-ответ.
-        """
 
         conversation_connections = (
             self._connections.get(conversation_id)
@@ -134,9 +121,6 @@ class ConversationConnectionManager:
         user_id: int,
         payload: Dict[str, Any],
     ) -> None:
-        """
-        Отправляет событие только одному участнику.
-        """
 
         conversation_connections = (
             self._connections.get(conversation_id)
@@ -175,10 +159,6 @@ class ConversationConnectionManager:
         self,
         conversation_id: int,
     ) -> int:
-        """
-        Возвращает количество активных соединений
-        конкретной переписки.
-        """
 
         conversation_connections = (
             self._connections.get(conversation_id)
@@ -194,6 +174,95 @@ class ConversationConnectionManager:
         )
 
 
+class NotificationConnectionManager:
+
+    def __init__(self) -> None:
+        self._connections: DefaultDict[
+            int,
+            Set[WebSocket],
+        ] = defaultdict(set)
+
+    async def connect(
+        self,
+        user_id: int,
+        websocket: WebSocket,
+    ) -> None:
+        await websocket.accept()
+
+        self._connections[user_id].add(
+            websocket
+        )
+
+    def disconnect(
+        self,
+        user_id: int,
+        websocket: WebSocket,
+    ) -> None:
+        user_connections = self._connections.get(
+            user_id
+        )
+
+        if not user_connections:
+            return
+
+        user_connections.discard(
+            websocket
+        )
+
+        if not user_connections:
+            self._connections.pop(
+                user_id,
+                None,
+            )
+
+    async def send_to_user(
+        self,
+        user_id: int,
+        payload: Dict[str, Any],
+    ) -> None:
+        user_connections = self._connections.get(
+            user_id
+        )
+
+        if not user_connections:
+            return
+
+        disconnected_connections = []
+
+        for websocket in list(user_connections):
+            try:
+                await websocket.send_json(
+                    payload
+                )
+            except Exception:
+                disconnected_connections.append(
+                    websocket
+                )
+
+        for websocket in disconnected_connections:
+            self.disconnect(
+                user_id=user_id,
+                websocket=websocket,
+            )
+
+    def get_connection_count(
+        self,
+        user_id: int,
+    ) -> int:
+        user_connections = self._connections.get(
+            user_id
+        )
+
+        if not user_connections:
+            return 0
+
+        return len(user_connections)
+
+
 conversation_connection_manager = (
     ConversationConnectionManager()
-) 
+)
+
+notification_connection_manager = (
+    NotificationConnectionManager()
+)

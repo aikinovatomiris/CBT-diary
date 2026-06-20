@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../models/conversation_model.dart';
+import '../../models/therapist_profile_model.dart';
 import '../../models/user_model.dart';
 import '../../services/api_exception.dart';
 import '../../services/auth_service.dart';
@@ -9,6 +10,7 @@ import '../../services/conversation_service.dart';
 import '../../services/therapist_service.dart';
 import '../../theme/app_radius.dart';
 import '../../theme/app_spacing.dart';
+import '../../utils/url_helper.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/app_error_view.dart';
 import '../../widgets/app_loading.dart';
@@ -34,38 +36,57 @@ class _ConversationsListScreenState
     _future = _loadData();
   }
 
+  // ============================================================
+  // LOAD DATA
+  // ============================================================
+
   Future<_ConversationsData> _loadData() async {
     final user = await AuthService.me();
+
     final conversations =
         await ConversationService.getConversations();
 
-    final therapistNamesByUserId = <int, String>{};
+    final therapistProfilesByUserId =
+        <int, TherapistProfileModel>{};
 
+    /*
+     * Пользователю в списке диалогов показываем данные
+     * терапевта из публичного каталога:
+     *
+     * - полное имя;
+     * - фотографию профиля.
+     *
+     * Связь выполняется через therapist.userId,
+     * который соответствует conversation.therapistUserId.
+     */
     if (user.role == 'user') {
       final therapists =
           await TherapistService.getApprovedTherapists();
 
       for (final therapist in therapists) {
-        final userId = therapist.userId;
-        final fullName = therapist.fullName;
+        final therapistUserId = therapist.userId;
 
-        if (userId == null ||
-            fullName == null ||
-            fullName.trim().isEmpty) {
+        if (therapistUserId == null) {
           continue;
         }
 
-        therapistNamesByUserId[userId] =
-            fullName.trim();
+        therapistProfilesByUserId[
+          therapistUserId
+        ] = therapist;
       }
     }
 
     return _ConversationsData(
       currentUser: user,
       conversations: conversations,
-      therapistNamesByUserId: therapistNamesByUserId,
+      therapistProfilesByUserId:
+          therapistProfilesByUserId,
     );
   }
+
+  // ============================================================
+  // REFRESH
+  // ============================================================
 
   Future<void> _refresh() async {
     setState(() {
@@ -75,18 +96,25 @@ class _ConversationsListScreenState
     await _future;
   }
 
+  // ============================================================
+  // OPEN CONVERSATION
+  // ============================================================
+
   Future<void> _openConversation(
     ConversationModel conversation,
   ) async {
-    final id = conversation.id;
+    final conversationId = conversation.id;
 
-    if (id == null) {
-      _showSnackBar('У переписки нет ID.');
+    if (conversationId == null) {
+      _showSnackBar(
+        'У переписки нет ID.',
+      );
+
       return;
     }
 
     await context.push(
-      '/conversations/$id',
+      '/conversations/$conversationId',
     );
 
     if (!mounted) {
@@ -96,7 +124,13 @@ class _ConversationsListScreenState
     await _refresh();
   }
 
-  void _showSnackBar(String message) {
+  // ============================================================
+  // SNACKBAR
+  // ============================================================
+
+  void _showSnackBar(
+    String message,
+  ) {
     if (!mounted) {
       return;
     }
@@ -107,6 +141,10 @@ class _ConversationsListScreenState
       ),
     );
   }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
 
   @override
   Widget build(BuildContext context) {
@@ -131,7 +169,9 @@ class _ConversationsListScreenState
 
           return Scaffold(
             appBar: AppBar(
-              title: const Text('Сообщения'),
+              title: const Text(
+                'Сообщения',
+              ),
             ),
             body: AppErrorView(
               message: message,
@@ -145,7 +185,9 @@ class _ConversationsListScreenState
         if (data == null) {
           return Scaffold(
             appBar: AppBar(
-              title: const Text('Сообщения'),
+              title: const Text(
+                'Сообщения',
+              ),
             ),
             body: AppErrorView(
               message: 'Нет данных.',
@@ -157,8 +199,8 @@ class _ConversationsListScreenState
         return _ConversationsListContent(
           currentUser: data.currentUser,
           conversations: data.conversations,
-          therapistNamesByUserId:
-              data.therapistNamesByUserId,
+          therapistProfilesByUserId:
+              data.therapistProfilesByUserId,
           onRefresh: _refresh,
           onOpenConversation: _openConversation,
         );
@@ -167,29 +209,47 @@ class _ConversationsListScreenState
   }
 }
 
+// ============================================================
+// DATA
+// ============================================================
+
 class _ConversationsData {
   final UserModel currentUser;
+
   final List<ConversationModel> conversations;
-  final Map<int, String> therapistNamesByUserId;
+
+  final Map<int, TherapistProfileModel>
+      therapistProfilesByUserId;
 
   const _ConversationsData({
     required this.currentUser,
     required this.conversations,
-    required this.therapistNamesByUserId,
+    required this.therapistProfilesByUserId,
   });
 }
 
-class _ConversationsListContent extends StatelessWidget {
+// ============================================================
+// CONTENT
+// ============================================================
+
+class _ConversationsListContent
+    extends StatelessWidget {
   final UserModel currentUser;
+
   final List<ConversationModel> conversations;
-  final Map<int, String> therapistNamesByUserId;
+
+  final Map<int, TherapistProfileModel>
+      therapistProfilesByUserId;
+
   final Future<void> Function() onRefresh;
-  final ValueChanged<ConversationModel> onOpenConversation;
+
+  final ValueChanged<ConversationModel>
+      onOpenConversation;
 
   const _ConversationsListContent({
     required this.currentUser,
     required this.conversations,
-    required this.therapistNamesByUserId,
+    required this.therapistProfilesByUserId,
     required this.onRefresh,
     required this.onOpenConversation,
   });
@@ -197,54 +257,44 @@ class _ConversationsListContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
     final role = currentUser.role;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Сообщения'),
+        title: const Text(
+          'Сообщения',
+        ),
       ),
       body: SafeArea(
         child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth > 760;
+          builder: (
+            context,
+            constraints,
+          ) {
+            final isWide =
+                constraints.maxWidth > 760;
 
             return Center(
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxWidth:
-                      isWide ? 720 : double.infinity,
+                  maxWidth: isWide
+                      ? 720
+                      : double.infinity,
                 ),
                 child: RefreshIndicator(
                   onRefresh: onRefresh,
                   child: ListView(
                     physics:
                         const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(
+                    padding:
+                        const EdgeInsets.fromLTRB(
                       AppSpacing.xl,
                       AppSpacing.xl,
                       AppSpacing.xl,
                       110,
                     ),
                     children: [
-                      Text(
-                        'Переписки',
-                        style:
-                            theme.textTheme.headlineMedium,
-                      ),
-                      const SizedBox(
-                        height: AppSpacing.sm,
-                      ),
-                      Text(
-                        'Переписка в приложении не заменяет консультацию и предназначена для первичной связи.',
-                        style:
-                            theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme
-                              .onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(
-                        height: AppSpacing.xl,
-                      ),
                       if (conversations.isEmpty)
                         AppCard(
                           hasShadow: false,
@@ -252,9 +302,11 @@ class _ConversationsListContent extends StatelessWidget {
                             role == 'therapist'
                                 ? 'Пока нет диалогов с пользователями.'
                                 : 'Пока нет диалогов со специалистами.',
-                            style: theme.textTheme.bodyMedium
+                            style: theme
+                                .textTheme.bodyMedium
                                 ?.copyWith(
-                              color: theme.colorScheme
+                              color: theme
+                                  .colorScheme
                                   .onSurfaceVariant,
                             ),
                           ),
@@ -262,22 +314,29 @@ class _ConversationsListContent extends StatelessWidget {
                       else
                         ...conversations.map(
                           (conversation) {
+                            final therapistProfile =
+                                _therapistProfileFor(
+                              conversation,
+                            );
+
                             return Padding(
                               padding:
                                   const EdgeInsets.only(
-                                bottom: AppSpacing.md,
+                                bottom:
+                                    AppSpacing.md,
                               ),
                               child: _ConversationCard(
                                 conversation:
                                     conversation,
                                 currentUser:
                                     currentUser,
-                                therapistNamesByUserId:
-                                    therapistNamesByUserId,
-                                onTap: () =>
-                                    onOpenConversation(
-                                  conversation,
-                                ),
+                                therapistProfile:
+                                    therapistProfile,
+                                onTap: () {
+                                  onOpenConversation(
+                                    conversation,
+                                  );
+                                },
                               ),
                             );
                           },
@@ -292,18 +351,44 @@ class _ConversationsListContent extends StatelessWidget {
       ),
     );
   }
+
+  TherapistProfileModel? _therapistProfileFor(
+    ConversationModel conversation,
+  ) {
+    if (currentUser.role != 'user') {
+      return null;
+    }
+
+    final therapistUserId =
+        conversation.therapistUserId;
+
+    if (therapistUserId == null) {
+      return null;
+    }
+
+    return therapistProfilesByUserId[
+      therapistUserId
+    ];
+  }
 }
+
+// ============================================================
+// CONVERSATION CARD
+// ============================================================
 
 class _ConversationCard extends StatelessWidget {
   final ConversationModel conversation;
   final UserModel currentUser;
-  final Map<int, String> therapistNamesByUserId;
+
+  final TherapistProfileModel?
+      therapistProfile;
+
   final VoidCallback onTap;
 
   const _ConversationCard({
     required this.conversation,
     required this.currentUser,
-    required this.therapistNamesByUserId,
+    required this.therapistProfile,
     required this.onTap,
   });
 
@@ -329,43 +414,45 @@ class _ConversationCard extends StatelessWidget {
         conversation.lastMessageSenderId ==
             currentUser.id;
 
+    final photoUrl = UrlHelper.buildFileUrl(
+      therapistProfile?.photoUrl,
+    );
+
+    final hasPhoto =
+        currentUser.role == 'user' &&
+        photoUrl.isNotEmpty;
+
     return AppCard(
       hasShadow: false,
       onTap: onTap,
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment:
+            CrossAxisAlignment.center,
         children: [
           Stack(
             clipBehavior: Clip.none,
             children: [
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary
-                      .withValues(alpha: 0.10),
-                  borderRadius: AppRadius.large,
-                ),
-                child: Icon(
-                  Icons.chat_bubble_outline_rounded,
-                  color: theme.colorScheme.primary,
-                  size: 23,
-                ),
+              _ConversationAvatar(
+                photoUrl: photoUrl,
+                hasPhoto: hasPhoto,
               ),
               if (hasUnread)
                 Positioned(
-                  right: -1,
-                  top: -1,
+                  right: 0,
+                  top: 0,
                   child: Container(
-                    width: 12,
-                    height: 12,
+                    width: 14,
+                    height: 14,
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primary,
+                      color:
+                          theme.colorScheme.primary,
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color:
-                            theme.scaffoldBackgroundColor,
-                        width: 2,
+                        color: theme
+                            .cardTheme.color ??
+                            theme
+                                .scaffoldBackgroundColor,
+                        width: 2.5,
                       ),
                     ),
                   ),
@@ -389,7 +476,8 @@ class _ConversationCard extends StatelessWidget {
                         overflow:
                             TextOverflow.ellipsis,
                         style: theme
-                            .textTheme.bodyMedium
+                            .textTheme
+                            .bodyMedium
                             ?.copyWith(
                           fontWeight: hasUnread
                               ? FontWeight.w800
@@ -404,11 +492,14 @@ class _ConversationCard extends StatelessWidget {
                       _formatConversationDate(
                         lastActivityAt,
                       ),
-                      style: theme.textTheme.bodySmall
+                      style: theme
+                          .textTheme.bodySmall
                           ?.copyWith(
                         color: hasUnread
-                            ? theme.colorScheme.primary
-                            : theme.colorScheme
+                            ? theme
+                                .colorScheme.primary
+                            : theme
+                                .colorScheme
                                 .onSurfaceVariant,
                         fontWeight: hasUnread
                             ? FontWeight.w700
@@ -425,7 +516,8 @@ class _ConversationCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         _buildLastMessageText(
-                          lastMessage: lastMessage,
+                          lastMessage:
+                              lastMessage,
                           isOwnLastMessage:
                               isOwnLastMessage,
                         ),
@@ -433,12 +525,15 @@ class _ConversationCard extends StatelessWidget {
                         overflow:
                             TextOverflow.ellipsis,
                         style: theme
-                            .textTheme.bodySmall
+                            .textTheme
+                            .bodySmall
                             ?.copyWith(
                           color: hasUnread
-                              ? theme.colorScheme
+                              ? theme
+                                  .colorScheme
                                   .onSurface
-                              : theme.colorScheme
+                              : theme
+                                  .colorScheme
                                   .onSurfaceVariant,
                           fontWeight: hasUnread
                               ? FontWeight.w600
@@ -451,8 +546,8 @@ class _ConversationCard extends StatelessWidget {
                         width: AppSpacing.sm,
                       ),
                       _UnreadBadge(
-                        count:
-                            conversation.unreadCount,
+                        count: conversation
+                            .unreadCount,
                       ),
                     ],
                   ],
@@ -465,14 +560,18 @@ class _ConversationCard extends StatelessWidget {
           ),
           Icon(
             Icons.chevron_right_rounded,
-            color:
-                theme.colorScheme.onSurfaceVariant,
+            color: theme
+                .colorScheme.onSurfaceVariant,
             size: 23,
           ),
         ],
       ),
     );
   }
+
+  // ============================================================
+  // LAST MESSAGE
+  // ============================================================
 
   String _buildLastMessageText({
     required String? lastMessage,
@@ -490,6 +589,10 @@ class _ConversationCard extends StatelessWidget {
     return lastMessage;
   }
 
+  // ============================================================
+  // TITLE
+  // ============================================================
+
   String _conversationTitle() {
     final explicitName =
         conversation.interlocutorName;
@@ -500,18 +603,12 @@ class _ConversationCard extends StatelessWidget {
     }
 
     if (currentUser.role == 'user') {
-      final therapistUserId =
-          conversation.therapistUserId;
+      final profileName =
+          therapistProfile?.fullName;
 
-      if (therapistUserId != null) {
-        final therapistName =
-            therapistNamesByUserId[
-                therapistUserId];
-
-        if (therapistName != null &&
-            therapistName.trim().isNotEmpty) {
-          return therapistName.trim();
-        }
+      if (profileName != null &&
+          profileName.trim().isNotEmpty) {
+        return profileName.trim();
       }
 
       final fallbackName =
@@ -521,6 +618,9 @@ class _ConversationCard extends StatelessWidget {
           fallbackName.trim().isNotEmpty) {
         return fallbackName.trim();
       }
+
+      final therapistUserId =
+          conversation.therapistUserId;
 
       return therapistUserId == null
           ? 'Диалог #${conversation.id ?? ''}'
@@ -540,6 +640,10 @@ class _ConversationCard extends StatelessWidget {
         ? 'Диалог #${conversation.id ?? ''}'
         : 'Пользователь #$userId';
   }
+
+  // ============================================================
+  // DATE
+  // ============================================================
 
   String _formatConversationDate(
     DateTime? date,
@@ -567,7 +671,9 @@ class _ConversationCard extends StatelessWidget {
         today.difference(messageDay).inDays;
 
     if (difference == 0) {
-      return _formatTime(localDate);
+      return _formatTime(
+        localDate,
+      );
     }
 
     if (difference == 1) {
@@ -584,15 +690,81 @@ class _ConversationCard extends StatelessWidget {
         '${localDate.year}';
   }
 
-  String _formatTime(DateTime date) {
+  String _formatTime(
+    DateTime date,
+  ) {
     final hour =
         date.hour.toString().padLeft(2, '0');
+
     final minute =
         date.minute.toString().padLeft(2, '0');
 
     return '$hour:$minute';
   }
 }
+
+// ============================================================
+// CONVERSATION AVATAR
+// Внешне повторяет аватар из каталога специалистов.
+// ============================================================
+
+class _ConversationAvatar
+    extends StatelessWidget {
+  final String photoUrl;
+  final bool hasPhoto;
+
+  const _ConversationAvatar({
+    required this.photoUrl,
+    required this.hasPhoto,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      width: 72,
+      height: 72,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: theme.colorScheme.primary
+            .withValues(
+          alpha: 0.10,
+        ),
+        border: Border.all(
+          color: theme.colorScheme.primary
+              .withValues(
+            alpha: 0.12,
+          ),
+          width: 1,
+        ),
+      ),
+      child: CircleAvatar(
+        backgroundColor:
+            theme.colorScheme.primary
+                .withValues(
+          alpha: 0.10,
+        ),
+        backgroundImage: hasPhoto
+            ? NetworkImage(photoUrl)
+            : null,
+        child: hasPhoto
+            ? null
+            : Icon(
+                Icons.person_outline_rounded,
+                color:
+                    theme.colorScheme.primary,
+                size: 32,
+              ),
+      ),
+    );
+  }
+}
+
+// ============================================================
+// UNREAD BADGE
+// ============================================================
 
 class _UnreadBadge extends StatelessWidget {
   final int count;
@@ -638,8 +810,10 @@ class _UnreadBadge extends StatelessWidget {
       alignment: Alignment.center,
       child: Text(
         text,
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onPrimary,
+        style:
+            theme.textTheme.bodySmall?.copyWith(
+          color:
+              theme.colorScheme.onPrimary,
           fontWeight: FontWeight.w800,
           fontSize: 11,
           height: 1,

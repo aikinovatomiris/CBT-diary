@@ -656,3 +656,40 @@ class ConversationReadResponse(BaseModel):
 
 class ShareDiaryEntryRequest(BaseModel):
     diary_entry_id: int
+    
+# =========================
+# App notification schemas
+# =========================
+
+class AppNotificationResponse(BaseModel):
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
+
+    id: int
+    user_id: int
+    conversation_id: int
+    sender_id: int
+
+    sender_name: str
+    title: str
+
+    is_read: bool
+
+    created_at: datetime
+    created_at_epoch_ms: int
+
+
+class AppNotificationReadResponse(BaseModel):
+    notification_id: int
+    is_read: bool
+
+
+class DeleteAppNotificationResponse(BaseModel):
+    message: str
+    deleted_notification_id: int
+
+
+class DeleteAllAppNotificationsResponse(BaseModel):
+    message: str
+    deleted_count: int

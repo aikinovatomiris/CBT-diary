@@ -17,6 +17,7 @@ from sqlalchemy.orm import (
 
 from app.database import get_db
 from app.models import (
+    AppNotification,
     Conversation,
     ConversationMessage,
     DiaryEntry,
@@ -38,6 +39,7 @@ from app.security import (
 )
 from app.websocket_manager import (
     conversation_connection_manager,
+    notification_connection_manager,
 )
 
 
@@ -151,6 +153,91 @@ def build_message_response(
         ),
     }
 
+def build_notification_response(
+    notification: AppNotification,
+) -> Dict[str, Any]:
+    created_at = ensure_utc_datetime(
+        notification.created_at
+    )
+
+    created_at_epoch_ms = (
+        datetime_to_epoch_ms(
+            notification.created_at
+        )
+    )
+
+    if created_at is None:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_500_INTERNAL_SERVER_ERROR
+            ),
+            detail=(
+                "У уведомления отсутствует дата создания"
+            ),
+        )
+
+    if created_at_epoch_ms is None:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_500_INTERNAL_SERVER_ERROR
+            ),
+            detail=(
+                "Не удалось преобразовать дату уведомления"
+            ),
+        )
+
+    return {
+        "id": notification.id,
+        "user_id": notification.user_id,
+        "conversation_id": (
+            notification.conversation_id
+        ),
+        "sender_id": notification.sender_id,
+        "sender_name": notification.sender_name,
+        "title": notification.title,
+        "is_read": notification.is_read,
+        "created_at": created_at,
+        "created_at_epoch_ms": (
+            created_at_epoch_ms
+        ),
+    }
+
+
+def get_notification_recipient_id(
+    conversation: Conversation,
+    sender_user_id: int,
+) -> int:
+    if sender_user_id == conversation.user_id:
+        return conversation.therapist_user_id
+
+    return conversation.user_id
+
+
+def create_message_notification(
+    conversation: Conversation,
+    sender: User,
+    db: Session,
+) -> AppNotification:
+    recipient_user_id = (
+        get_notification_recipient_id(
+            conversation=conversation,
+            sender_user_id=sender.id,
+        )
+    )
+
+    notification = AppNotification(
+        user_id=recipient_user_id,
+        conversation_id=conversation.id,
+        sender_id=sender.id,
+        sender_name=sender.name,
+        title="Новое сообщение",
+        is_read=False,
+        created_at=utc_now(),
+    )
+
+    db.add(notification)
+
+    return notification
 
 # ============================================================
 # CONVERSATION HELPERS
@@ -533,6 +620,34 @@ async def broadcast_new_message(
             payload=payload,
             exclude_user_id=sender_user_id,
         )
+    )
+    
+async def broadcast_new_notification(
+    notification: AppNotification,
+) -> None:
+    notification_data = (
+        build_notification_response(
+            notification
+        )
+    )
+
+    created_at = notification_data.get(
+        "created_at"
+    )
+
+    if isinstance(created_at, datetime):
+        notification_data["created_at"] = (
+            created_at.isoformat()
+        )
+
+    payload = {
+        "type": "new_notification",
+        "notification": notification_data,
+    }
+
+    await notification_connection_manager.send_to_user(
+        user_id=notification.user_id,
+        payload=payload,
     )
 
 
@@ -919,18 +1034,31 @@ async def send_conversation_message(
         current_user=current_user,
     )
 
+    notification = create_message_notification(
+        conversation=conversation,
+        sender=current_user,
+        db=db,
+    )
+
+    db.flush()
+
     db.commit()
+
     db.refresh(message)
+    db.refresh(notification)
 
     await broadcast_new_message(
         message=message,
         sender_user_id=current_user.id,
     )
 
+    await broadcast_new_notification(
+        notification
+    )
+
     return build_message_response(
         message
     )
-
 
 # ============================================================
 # PATCH /conversations/{conversation_id}/read
@@ -1050,12 +1178,26 @@ async def share_diary_entry_in_conversation(
         current_user=current_user,
     )
 
+    notification = create_message_notification(
+        conversation=conversation,
+        sender=current_user,
+        db=db,
+    )
+
+    db.flush()
+
     db.commit()
+
     db.refresh(message)
+    db.refresh(notification)
 
     await broadcast_new_message(
         message=message,
         sender_user_id=current_user.id,
+    )
+
+    await broadcast_new_notification(
+        notification
     )
 
     return build_message_response(

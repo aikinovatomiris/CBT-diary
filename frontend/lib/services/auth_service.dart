@@ -2,6 +2,7 @@ import '../models/token_model.dart';
 import '../models/user_model.dart';
 import 'api_client.dart';
 import 'api_exception.dart';
+import 'notification_controller.dart';
 import 'token_storage.dart';
 
 class AuthService {
@@ -112,7 +113,8 @@ class AuthService {
 
       final token = tokenModel.accessToken;
 
-      if (token == null || token.trim().isEmpty) {
+      if (token == null ||
+          token.trim().isEmpty) {
         throw const ApiException(
           message:
               'Сервер не вернул токен авторизации.',
@@ -120,6 +122,8 @@ class AuthService {
       }
 
       _cachedUser = null;
+
+      await NotificationController.instance.stop();
 
       await TokenStorage.saveToken(
         token,
@@ -166,7 +170,8 @@ class AuthService {
 
       final token = tokenModel.accessToken;
 
-      if (token == null || token.trim().isEmpty) {
+      if (token == null ||
+          token.trim().isEmpty) {
         throw const ApiException(
           message:
               'Сервер не вернул токен авторизации.',
@@ -174,6 +179,8 @@ class AuthService {
       }
 
       _cachedUser = null;
+
+      await NotificationController.instance.stop();
 
       await TokenStorage.saveToken(
         token,
@@ -199,6 +206,10 @@ class AuthService {
   }) async {
     if (!forceRefresh &&
         _cachedUser != null) {
+      await _startNotificationsForUser(
+        _cachedUser!,
+      );
+
       return _cachedUser!;
     }
 
@@ -212,6 +223,10 @@ class AuthService {
 
       _cachedUser = user;
 
+      await _startNotificationsForUser(
+        user,
+      );
+
       return user;
     } on ApiException {
       rethrow;
@@ -224,11 +239,29 @@ class AuthService {
   }
 
   // ============================================================
+  // NOTIFICATIONS
+  // ============================================================
+
+  static Future<void> _startNotificationsForUser(
+    UserModel user,
+  ) async {
+    if (user.role != 'user' &&
+        user.role != 'therapist') {
+      await NotificationController.instance.stop();
+      return;
+    }
+
+    await NotificationController.instance.start();
+  }
+
+  // ============================================================
   // LOGOUT
   // ============================================================
 
   static Future<void> logout() async {
     try {
+      await NotificationController.instance.stop();
+
       _cachedUser = null;
 
       await TokenStorage.clearToken();

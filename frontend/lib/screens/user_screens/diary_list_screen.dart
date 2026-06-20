@@ -29,8 +29,12 @@ class _DiaryListScreenState extends State<DiaryListScreen> {
   List<DiaryEntryModel> _allEntries = [];
   List<DiaryEntryModel> _filteredEntries = [];
 
+  static const int _itemsPerPage = 6;
+
   String _searchQuery = '';
   DateTime? _selectedDate;
+  DateTimeRange? _selectedDateRange;
+  int _currentPage = 1;
 
   @override
   void initState() {
@@ -69,6 +73,7 @@ class _DiaryListScreenState extends State<DiaryListScreen> {
 
   void _onSearchChanged(String value) {
     _searchQuery = value.trim().toLowerCase();
+    _currentPage = 1;
     _applyFilters();
   }
 
@@ -76,6 +81,7 @@ class _DiaryListScreenState extends State<DiaryListScreen> {
     var result = [..._allEntries];
 
     final selectedDate = _selectedDate;
+    final selectedDateRange = _selectedDateRange;
 
     if (selectedDate != null) {
       result = result.where((entry) {
@@ -86,6 +92,22 @@ class _DiaryListScreenState extends State<DiaryListScreen> {
         }
 
         return _isSameDate(createdAt.toLocal(), selectedDate);
+      }).toList();
+    } else if (selectedDateRange != null) {
+      final rangeStart = _dateOnly(selectedDateRange.start);
+      final rangeEnd = _dateOnly(selectedDateRange.end);
+
+      result = result.where((entry) {
+        final createdAt = entry.createdAt;
+
+        if (createdAt == null) {
+          return false;
+        }
+
+        final entryDate = _dateOnly(createdAt.toLocal());
+
+        return !entryDate.isBefore(rangeStart) &&
+            !entryDate.isAfter(rangeEnd);
       }).toList();
     }
 
@@ -106,15 +128,44 @@ class _DiaryListScreenState extends State<DiaryListScreen> {
 
     _filteredEntries = result;
 
+    final totalPages = _totalPages;
+
+    if (_currentPage > totalPages) {
+      _currentPage = totalPages;
+    }
+
+    if (_currentPage < 1) {
+      _currentPage = 1;
+    }
+
     if (mounted) {
       setState(() {});
     }
   }
 
-  Future<void> _pickDate() async {
-    final now = DateTime.now();
+  Future<void> _openDateFilter() async {
+    final selectedMode = await showModalBottomSheet<_DateFilterMode>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return const _DateFilterModeSheet();
+      },
+    );
 
-    final initialDate = _selectedDate ?? now;
+    if (!mounted || selectedMode == null) {
+      return;
+    }
+
+    if (selectedMode == _DateFilterMode.singleDate) {
+      await _pickSingleDate();
+    } else {
+      await _pickDateRange();
+    }
+  }
+
+  Future<void> _pickSingleDate() async {
+    final now = DateTime.now();
+    final initialDate = _selectedDate ?? _selectedDateRange?.start ?? now;
 
     final pickedDate = await showDatePicker(
       context: context,
@@ -124,29 +175,7 @@ class _DiaryListScreenState extends State<DiaryListScreen> {
       helpText: 'Выбери дату',
       cancelText: 'Отмена',
       confirmText: 'Готово',
-      builder: (context, child) {
-        final theme = Theme.of(context);
-        final isDark = theme.brightness == Brightness.dark;
-
-        return Theme(
-          data: theme.copyWith(
-            colorScheme: theme.colorScheme.copyWith(
-              primary: theme.colorScheme.primary,
-              onPrimary: AppColors.white,
-              surface: isDark ? AppColors.darkSurface : AppColors.lightBackground,
-              onSurface: isDark ? AppColors.darkText : AppColors.lightText,
-            ),
-            dialogTheme: DialogThemeData(
-              backgroundColor:
-                  isDark ? AppColors.darkSurface : AppColors.lightBackground,
-              shape: RoundedRectangleBorder(
-                borderRadius: AppRadius.extraLarge,
-              ),
-            ),
-          ),
-          child: child!,
-        );
-      },
+      builder: _datePickerThemeBuilder,
     );
 
     if (pickedDate == null) {
@@ -154,28 +183,86 @@ class _DiaryListScreenState extends State<DiaryListScreen> {
     }
 
     setState(() {
-      _selectedDate = DateTime(
-        pickedDate.year,
-        pickedDate.month,
-        pickedDate.day,
-      );
+      _selectedDate = _dateOnly(pickedDate);
+      _selectedDateRange = null;
+      _currentPage = 1;
     });
 
     _applyFilters();
+  }
+
+  Future<void> _pickDateRange() async {
+    final now = DateTime.now();
+    final initialRange = _selectedDateRange ??
+        DateTimeRange(
+          start: _selectedDate ?? now,
+          end: _selectedDate ?? now,
+        );
+
+    final pickedRange = await showDateRangePicker(
+      context: context,
+      initialDateRange: initialRange,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(now.year + 2, 12, 31),
+      helpText: 'Выбери период',
+      cancelText: 'Отмена',
+      confirmText: 'Готово',
+      saveText: 'Готово',
+      builder: _datePickerThemeBuilder,
+    );
+
+    if (pickedRange == null) {
+      return;
+    }
+
+    setState(() {
+      _selectedDate = null;
+      _selectedDateRange = DateTimeRange(
+        start: _dateOnly(pickedRange.start),
+        end: _dateOnly(pickedRange.end),
+      );
+      _currentPage = 1;
+    });
+
+    _applyFilters();
+  }
+
+  Widget _datePickerThemeBuilder(BuildContext context, Widget? child) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Theme(
+      data: theme.copyWith(
+        colorScheme: theme.colorScheme.copyWith(
+          primary: theme.colorScheme.primary,
+          onPrimary: AppColors.white,
+          surface: isDark ? AppColors.darkSurface : AppColors.lightBackground,
+          onSurface: isDark ? AppColors.darkText : AppColors.lightText,
+        ),
+        dialogTheme: DialogThemeData(
+          backgroundColor:
+              isDark ? AppColors.darkSurface : AppColors.lightBackground,
+          shape: RoundedRectangleBorder(
+            borderRadius: AppRadius.extraLarge,
+          ),
+        ),
+      ),
+      child: child!,
+    );
   }
 
   void _resetDateFilter() {
     setState(() {
       _selectedDate = null;
+      _selectedDateRange = null;
+      _currentPage = 1;
     });
 
     _applyFilters();
   }
 
-  bool _hasEntriesForSelectedDate() {
-    final selectedDate = _selectedDate;
-
-    if (selectedDate == null) {
+  bool _hasEntriesForSelectedPeriod() {
+    if (_selectedDate == null && _selectedDateRange == null) {
       return true;
     }
 
@@ -186,8 +273,75 @@ class _DiaryListScreenState extends State<DiaryListScreen> {
         return false;
       }
 
-      return _isSameDate(createdAt.toLocal(), selectedDate);
+      final entryDate = _dateOnly(createdAt.toLocal());
+
+      if (_selectedDate != null) {
+        return _isSameDate(entryDate, _selectedDate!);
+      }
+
+      final range = _selectedDateRange!;
+      final rangeStart = _dateOnly(range.start);
+      final rangeEnd = _dateOnly(range.end);
+
+      return !entryDate.isBefore(rangeStart) &&
+          !entryDate.isAfter(rangeEnd);
     });
+  }
+
+  int get _totalPages {
+    if (_filteredEntries.isEmpty) {
+      return 1;
+    }
+
+    return (_filteredEntries.length / _itemsPerPage).ceil();
+  }
+
+  List<DiaryEntryModel> get _visibleEntries {
+    if (_filteredEntries.isEmpty) {
+      return [];
+    }
+
+    final startIndex = (_currentPage - 1) * _itemsPerPage;
+    final endIndex = (startIndex + _itemsPerPage).clamp(
+      0,
+      _filteredEntries.length,
+    );
+
+    return _filteredEntries.sublist(startIndex, endIndex);
+  }
+
+  void _goToPage(int page) {
+    if (page < 1 || page > _totalPages || page == _currentPage) {
+      return;
+    }
+
+    setState(() {
+      _currentPage = page;
+    });
+  }
+
+  DateTime _dateOnly(DateTime date) {
+    final localDate = date.toLocal();
+
+    return DateTime(
+      localDate.year,
+      localDate.month,
+      localDate.day,
+    );
+  }
+
+  String _formatDateFilter() {
+    if (_selectedDate != null) {
+      return 'Дата: ${_formatDate(_selectedDate)}';
+    }
+
+    final range = _selectedDateRange;
+
+    if (range != null) {
+      return 'Период: ${_formatDate(range.start)} — ${_formatDate(range.end)}';
+    }
+
+    return '';
   }
 
   Future<void> _openEntry(DiaryEntryModel entry) async {
@@ -300,14 +454,19 @@ class _DiaryListScreenState extends State<DiaryListScreen> {
 
         return _DiaryListContent(
           searchController: _searchController,
-          entries: _filteredEntries,
+          entries: _visibleEntries,
           hasAnyEntries: _allEntries.isNotEmpty,
-          selectedDate: _selectedDate,
-          hasEntriesForSelectedDate: _hasEntriesForSelectedDate(),
+          hasDateFilter: _selectedDate != null || _selectedDateRange != null,
+          dateFilterText: _formatDateFilter(),
+          hasEntriesForSelectedPeriod: _hasEntriesForSelectedPeriod(),
           searchQuery: _searchQuery,
+          currentPage: _currentPage,
+          totalPages: _totalPages,
+          totalFilteredEntries: _filteredEntries.length,
           onSearchChanged: _onSearchChanged,
-          onPickDate: _pickDate,
+          onPickDate: _openDateFilter,
           onResetDateFilter: _resetDateFilter,
+          onPageChanged: _goToPage,
           onRefresh: _refresh,
           onOpenEntry: _openEntry,
           formatDate: _formatDate,
@@ -323,12 +482,17 @@ class _DiaryListContent extends StatelessWidget {
   final TextEditingController searchController;
   final List<DiaryEntryModel> entries;
   final bool hasAnyEntries;
-  final DateTime? selectedDate;
-  final bool hasEntriesForSelectedDate;
+  final bool hasDateFilter;
+  final String dateFilterText;
+  final bool hasEntriesForSelectedPeriod;
   final String searchQuery;
+  final int currentPage;
+  final int totalPages;
+  final int totalFilteredEntries;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onPickDate;
   final VoidCallback onResetDateFilter;
+  final ValueChanged<int> onPageChanged;
   final Future<void> Function() onRefresh;
   final ValueChanged<DiaryEntryModel> onOpenEntry;
   final String Function(DateTime?) formatDate;
@@ -339,12 +503,17 @@ class _DiaryListContent extends StatelessWidget {
     required this.searchController,
     required this.entries,
     required this.hasAnyEntries,
-    required this.selectedDate,
-    required this.hasEntriesForSelectedDate,
+    required this.hasDateFilter,
+    required this.dateFilterText,
+    required this.hasEntriesForSelectedPeriod,
     required this.searchQuery,
+    required this.currentPage,
+    required this.totalPages,
+    required this.totalFilteredEntries,
     required this.onSearchChanged,
     required this.onPickDate,
     required this.onResetDateFilter,
+    required this.onPageChanged,
     required this.onRefresh,
     required this.onOpenEntry,
     required this.formatDate,
@@ -356,7 +525,7 @@ class _DiaryListContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final isDateFilterActive = selectedDate != null;
+    final isDateFilterActive = hasDateFilter;
 
     return Scaffold(
       body: SafeArea(
@@ -418,10 +587,10 @@ class _DiaryListContent extends StatelessWidget {
                         onChanged: onSearchChanged,
                       ),
 
-                      if (selectedDate != null) ...[
+                      if (hasDateFilter) ...[
                         const SizedBox(height: AppSpacing.md),
                         _DateFilterChip(
-                          dateText: formatDate(selectedDate),
+                          filterText: dateFilterText,
                           onReset: onResetDateFilter,
                         ),
                       ],
@@ -432,9 +601,9 @@ class _DiaryListContent extends StatelessWidget {
                         const _EmptyDiaryState()
                       else if (entries.isEmpty)
                         _FilteredEmptyState(
-                          hasDateFilter: selectedDate != null,
-                          hasEntriesForSelectedDate:
-                              hasEntriesForSelectedDate,
+                          hasDateFilter: hasDateFilter,
+                          hasEntriesForSelectedPeriod:
+                              hasEntriesForSelectedPeriod,
                           hasSearchQuery: searchQuery.isNotEmpty,
                         )
                       else
@@ -454,12 +623,171 @@ class _DiaryListContent extends StatelessWidget {
                             );
                           },
                         ),
+
+                      if (totalFilteredEntries > 0 && totalPages > 1) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        _PaginationBar(
+                          currentPage: currentPage,
+                          totalPages: totalPages,
+                          onPageChanged: onPageChanged,
+                        ),
+                      ],
                     ],
                   ),
                 ),
               ),
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+
+enum _DateFilterMode {
+  singleDate,
+  dateRange,
+}
+
+class _DateFilterModeSheet extends StatelessWidget {
+  const _DateFilterModeSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.all(AppSpacing.md),
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+          borderRadius: AppRadius.extraLarge,
+          border: Border.all(
+            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+            width: 1,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Фильтр по дате',
+              style: theme.textTheme.titleLarge,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              'Покажи записи за один день или за выбранный период.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            _DateFilterModeTile(
+              icon: Icons.calendar_today_rounded,
+              title: 'Одна дата',
+              subtitle: 'Записи за конкретный день',
+              onTap: () {
+                Navigator.of(context).pop(_DateFilterMode.singleDate);
+              },
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            _DateFilterModeTile(
+              icon: Icons.date_range_rounded,
+              title: 'Период',
+              subtitle: 'Записи между двумя датами',
+              onTap: () {
+                Navigator.of(context).pop(_DateFilterMode.dateRange);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DateFilterModeTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _DateFilterModeTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.large,
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            color: isDark
+                ? AppColors.darkSurfaceSoft.withOpacity(0.72)
+                : AppColors.lightPrimarySoft.withOpacity(0.58),
+            borderRadius: AppRadius.large,
+            border: Border.all(
+              color: theme.colorScheme.primary.withOpacity(0.12),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withOpacity(0.10),
+                  borderRadius: AppRadius.medium,
+                ),
+                child: Icon(
+                  icon,
+                  color: theme.colorScheme.primary,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      subtitle,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -537,11 +865,11 @@ class _CalendarIconButton extends StatelessWidget {
 }
 
 class _DateFilterChip extends StatelessWidget {
-  final String dateText;
+  final String filterText;
   final VoidCallback onReset;
 
   const _DateFilterChip({
-    required this.dateText,
+    required this.filterText,
     required this.onReset,
   });
 
@@ -583,7 +911,7 @@ class _DateFilterChip extends StatelessWidget {
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
-              'Дата: $dateText',
+              filterText,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: primary,
                 fontWeight: FontWeight.w700,
@@ -610,6 +938,169 @@ class _DateFilterChip extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+
+class _PaginationBar extends StatelessWidget {
+  final int currentPage;
+  final int totalPages;
+  final ValueChanged<int> onPageChanged;
+
+  const _PaginationBar({
+    required this.currentPage,
+    required this.totalPages,
+    required this.onPageChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final visiblePages = _buildVisiblePages();
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _PaginationButton(
+          icon: Icons.chevron_left_rounded,
+          isEnabled: currentPage > 1,
+          onTap: () => onPageChanged(currentPage - 1),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        ...visiblePages.map((page) {
+          if (page == null) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+              child: Text(
+                '…',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            );
+          }
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+            child: _PaginationButton(
+              label: page.toString(),
+              isActive: page == currentPage,
+              onTap: () => onPageChanged(page),
+            ),
+          );
+        }),
+        const SizedBox(width: AppSpacing.sm),
+        _PaginationButton(
+          icon: Icons.chevron_right_rounded,
+          isEnabled: currentPage < totalPages,
+          onTap: () => onPageChanged(currentPage + 1),
+        ),
+      ],
+    );
+  }
+
+  List<int?> _buildVisiblePages() {
+    if (totalPages <= 5) {
+      return List<int>.generate(totalPages, (index) => index + 1);
+    }
+
+    if (currentPage <= 3) {
+      return [1, 2, 3, 4, null, totalPages];
+    }
+
+    if (currentPage >= totalPages - 2) {
+      return [
+        1,
+        null,
+        totalPages - 3,
+        totalPages - 2,
+        totalPages - 1,
+        totalPages,
+      ];
+    }
+
+    return [
+      1,
+      null,
+      currentPage - 1,
+      currentPage,
+      currentPage + 1,
+      null,
+      totalPages,
+    ];
+  }
+}
+
+class _PaginationButton extends StatelessWidget {
+  final String? label;
+  final IconData? icon;
+  final bool isActive;
+  final bool isEnabled;
+  final VoidCallback onTap;
+
+  const _PaginationButton({
+    this.label,
+    this.icon,
+    this.isActive = false,
+    this.isEnabled = true,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primary = theme.colorScheme.primary;
+
+    final backgroundColor = isActive
+        ? primary
+        : isDark
+            ? AppColors.darkSurface
+            : AppColors.lightSurface;
+
+    final foregroundColor = isActive
+        ? AppColors.white
+        : isEnabled
+            ? theme.colorScheme.onSurface
+            : theme.colorScheme.onSurfaceVariant.withOpacity(0.42);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: isEnabled ? onTap : null,
+        borderRadius: AppRadius.medium,
+        child: Container(
+          width: 40,
+          height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: AppRadius.medium,
+            border: Border.all(
+              color: isActive
+                  ? primary
+                  : isDark
+                      ? AppColors.darkBorder
+                      : AppColors.lightBorder,
+              width: 1,
+            ),
+          ),
+          child: icon != null
+              ? Icon(
+                  icon,
+                  color: foregroundColor,
+                  size: 20,
+                )
+              : Text(
+                  label ?? '',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: foregroundColor,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+        ),
       ),
     );
   }
@@ -893,18 +1384,18 @@ class _EmptyDiaryState extends StatelessWidget {
 
 class _FilteredEmptyState extends StatelessWidget {
   final bool hasDateFilter;
-  final bool hasEntriesForSelectedDate;
+  final bool hasEntriesForSelectedPeriod;
   final bool hasSearchQuery;
 
   const _FilteredEmptyState({
     required this.hasDateFilter,
-    required this.hasEntriesForSelectedDate,
+    required this.hasEntriesForSelectedPeriod,
     required this.hasSearchQuery,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (hasDateFilter && !hasEntriesForSelectedDate) {
+    if (hasDateFilter && !hasEntriesForSelectedPeriod) {
       return const _NoDateResultsState();
     }
 
@@ -933,12 +1424,12 @@ class _NoDateResultsState extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.md),
           Text(
-            'На эту дату записей нет',
+            'За выбранный период записей нет',
             style: theme.textTheme.titleLarge,
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            'Попробуй выбрать другую дату или сбросить фильтр.',
+            'Попробуй выбрать другую дату, другой период или сбросить фильтр.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),

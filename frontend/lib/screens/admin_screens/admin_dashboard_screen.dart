@@ -52,9 +52,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               : 'Не удалось загрузить админ-панель.';
 
           return Scaffold(
-            appBar: AppBar(
-              title: const Text('Админ'),
-            ),
             body: AppErrorView(
               message: message,
               onRetry: _refresh,
@@ -66,9 +63,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
         if (summary == null) {
           return Scaffold(
-            appBar: AppBar(
-              title: const Text('Админ'),
-            ),
             body: AppErrorView(
               message: 'Нет данных для админ-панели.',
               onRetry: _refresh,
@@ -99,9 +93,6 @@ class _AdminDashboardContent extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Админ'),
-      ),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {

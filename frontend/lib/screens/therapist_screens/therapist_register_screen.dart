@@ -149,9 +149,6 @@ class _TherapistRegisterScreenState extends State<TherapistRegisterScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Регистрация специалиста'),
-      ),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {

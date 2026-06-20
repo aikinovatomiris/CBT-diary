@@ -42,6 +42,8 @@ class _ConversationDetailScreenState
   int? _conversationId;
   UserModel? _currentUser;
 
+  String _conversationTitle = 'Переписка';
+
   List<ConversationMessageModel> _messages = [];
 
   ConversationSocketService? _socketService;
@@ -88,11 +90,30 @@ class _ConversationDetailScreenState
 
     final user = await AuthService.me();
 
+    final conversations =
+        await ConversationService.getConversations();
+
+    ConversationModel? currentConversation;
+
+    for (final conversation in conversations) {
+      if (conversation.id == id) {
+        currentConversation = conversation;
+        break;
+      }
+    }
+
     final messages =
         await ConversationService.getMessages(id);
 
+    final conversationTitle =
+        _resolveConversationTitle(
+      conversation: currentConversation,
+      currentUser: user,
+    );
+
     _currentUser = user;
     _messages = messages;
+    _conversationTitle = conversationTitle;
 
     await _markAsReadSilently();
     await _startSocketSilently();
@@ -104,7 +125,51 @@ class _ConversationDetailScreenState
     return _ConversationDetailData(
       currentUser: user,
       messages: messages,
+      conversationTitle: conversationTitle,
     );
+  }
+
+  String _resolveConversationTitle({
+    required ConversationModel? conversation,
+    required UserModel currentUser,
+  }) {
+    if (conversation == null) {
+      return 'Переписка';
+    }
+
+    final interlocutorName =
+        conversation.interlocutorName?.trim();
+
+    if (interlocutorName != null &&
+        interlocutorName.isNotEmpty) {
+      return interlocutorName;
+    }
+
+    if (currentUser.role == 'user') {
+      final therapistName =
+          conversation.therapistName?.trim();
+
+      if (therapistName != null &&
+          therapistName.isNotEmpty) {
+        return therapistName;
+      }
+
+      return 'Терапевт';
+    }
+
+    if (currentUser.role == 'therapist') {
+      final userName =
+          conversation.userName?.trim();
+
+      if (userName != null &&
+          userName.isNotEmpty) {
+        return userName;
+      }
+
+      return 'Пользователь';
+    }
+
+    return 'Переписка';
   }
 
   Future<void> _refresh() async {
@@ -465,7 +530,9 @@ class _ConversationDetailScreenState
     );
   }
 
-  void _showSnackBar(String message) {
+  void _showSnackBar(
+    String message,
+  ) {
     if (!mounted) {
       return;
     }
@@ -486,7 +553,9 @@ class _ConversationDetailScreenState
     if (_conversationId == null) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Переписка'),
+          title: const Text(
+            'Переписка',
+          ),
         ),
         body: const AppErrorView(
           message: 'Не найден ID переписки.',
@@ -497,11 +566,9 @@ class _ConversationDetailScreenState
     return FutureBuilder<_ConversationDetailData>(
       future: _future,
       builder: (context, snapshot) {
-        if (
-            snapshot.connectionState ==
+        if (snapshot.connectionState ==
                 ConnectionState.waiting &&
-            _messages.isEmpty
-        ) {
+            _messages.isEmpty) {
           return const Scaffold(
             body: AppLoading(
               text: 'Загрузка переписки...',
@@ -509,10 +576,8 @@ class _ConversationDetailScreenState
           );
         }
 
-        if (
-            snapshot.hasError &&
-            _messages.isEmpty
-        ) {
+        if (snapshot.hasError &&
+            _messages.isEmpty) {
           final error = snapshot.error;
 
           final message = error is ApiException
@@ -521,7 +586,9 @@ class _ConversationDetailScreenState
 
           return Scaffold(
             appBar: AppBar(
-              title: const Text('Переписка'),
+              title: Text(
+                _conversationTitle,
+              ),
             ),
             body: AppErrorView(
               message: message,
@@ -537,7 +604,9 @@ class _ConversationDetailScreenState
         if (user == null) {
           return Scaffold(
             appBar: AppBar(
-              title: const Text('Переписка'),
+              title: Text(
+                _conversationTitle,
+              ),
             ),
             body: AppErrorView(
               message:
@@ -547,8 +616,13 @@ class _ConversationDetailScreenState
           );
         }
 
+        final conversationTitle =
+            snapshot.data?.conversationTitle ??
+            _conversationTitle;
+
         return _ConversationDetailContent(
           currentUser: user,
+          conversationTitle: conversationTitle,
           messages: _messages,
           messageController:
               _messageController,
@@ -567,28 +641,45 @@ class _ConversationDetailScreenState
   }
 }
 
+// ============================================================
+// DATA
+// ============================================================
+
 class _ConversationDetailData {
   final UserModel currentUser;
+
   final List<ConversationMessageModel> messages;
+
+  final String conversationTitle;
 
   const _ConversationDetailData({
     required this.currentUser,
     required this.messages,
+    required this.conversationTitle,
   });
 }
+
+// ============================================================
+// CONTENT
+// ============================================================
 
 class _ConversationDetailContent
     extends StatelessWidget {
   final UserModel currentUser;
+
+  final String conversationTitle;
+
   final List<ConversationMessageModel> messages;
 
   final TextEditingController messageController;
+
   final ScrollController scrollController;
 
   final bool isSending;
   final bool isOpeningSharedEntry;
 
   final VoidCallback onSend;
+
   final Future<void> Function() onRefresh;
 
   final ValueChanged<ConversationMessageModel>
@@ -596,6 +687,7 @@ class _ConversationDetailContent
 
   const _ConversationDetailContent({
     required this.currentUser,
+    required this.conversationTitle,
     required this.messages,
     required this.messageController,
     required this.scrollController,
@@ -612,7 +704,11 @@ class _ConversationDetailContent
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Переписка'),
+        title: Text(
+          conversationTitle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         actions: [
           IconButton(
             tooltip: 'Обновить',
@@ -625,15 +721,19 @@ class _ConversationDetailContent
       ),
       body: SafeArea(
         child: LayoutBuilder(
-          builder: (context, constraints) {
+          builder: (
+            context,
+            constraints,
+          ) {
             final isWide =
                 constraints.maxWidth > 760;
 
             return Center(
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxWidth:
-                      isWide ? 720 : double.infinity,
+                  maxWidth: isWide
+                      ? 720
+                      : double.infinity,
                 ),
                 child: Column(
                   children: [
@@ -690,7 +790,9 @@ class _ConversationDetailContent
 
                                   final previous =
                                       index > 0
-                                          ? messages[index - 1]
+                                          ? messages[
+                                              index - 1
+                                            ]
                                           : null;
 
                                   final showDate =
@@ -703,8 +805,8 @@ class _ConversationDetailContent
                                     children: [
                                       if (showDate)
                                         _MessageDateDivider(
-                                          date:
-                                              message.createdAt,
+                                          date: message
+                                              .createdAt,
                                         ),
                                       _MessageBubble(
                                         message: message,
@@ -727,7 +829,8 @@ class _ConversationDetailContent
                             ),
                     ),
                     _MessageInput(
-                      controller: messageController,
+                      controller:
+                          messageController,
                       isSending: isSending,
                       onSend: onSend,
                     ),
@@ -749,16 +852,14 @@ class _ConversationDetailContent
       return true;
     }
 
-    // Приводим значения к локальному времени перед сравнениями.
-    // Это делает поведение устойчивым, если где-то ранее
-    // дата ещё не была преобразована в локальную зону.
-    final previousDate = previous.createdAt?.toLocal();
-    final currentDate = current.createdAt?.toLocal();
+    final previousDate =
+        previous.createdAt?.toLocal();
 
-    if (
-        previousDate == null ||
-        currentDate == null
-    ) {
+    final currentDate =
+        current.createdAt?.toLocal();
+
+    if (previousDate == null ||
+        currentDate == null) {
       return previousDate != currentDate;
     }
 
@@ -767,6 +868,10 @@ class _ConversationDetailContent
         previousDate.day != currentDate.day;
   }
 }
+
+// ============================================================
+// DATE DIVIDER
+// ============================================================
 
 class _MessageDateDivider
     extends StatelessWidget {
@@ -794,7 +899,9 @@ class _MessageDateDivider
           decoration: BoxDecoration(
             color: theme.colorScheme
                 .surfaceContainerHighest
-                .withValues(alpha: 0.62),
+                .withValues(
+              alpha: 0.62,
+            ),
             borderRadius: AppRadius.medium,
           ),
           child: Text(
@@ -812,11 +919,13 @@ class _MessageDateDivider
     );
   }
 
-  String _formatDate(DateTime? value) {
+  String _formatDate(
+    DateTime? value,
+  ) {
     if (value == null) {
       return 'Дата не указана';
     }
-    // Убедимся, что работаем с локальным временем.
+
     final date = value.toLocal();
     final now = DateTime.now();
 
@@ -870,10 +979,16 @@ class _MessageDateDivider
   }
 }
 
+// ============================================================
+// MESSAGE BUBBLE
+// ============================================================
+
 class _MessageBubble extends StatelessWidget {
   final ConversationMessageModel message;
+
   final bool isMine;
   final bool isOpeningSharedEntry;
+
   final VoidCallback onOpenSharedDiaryEntry;
 
   const _MessageBubble({
@@ -926,7 +1041,8 @@ class _MessageBubble extends StatelessWidget {
           ),
           child: IntrinsicWidth(
             child: Container(
-              padding: const EdgeInsets.symmetric(
+              padding:
+                  const EdgeInsets.symmetric(
                 horizontal: AppSpacing.lg,
                 vertical: AppSpacing.md,
               ),
@@ -965,7 +1081,8 @@ class _MessageBubble extends StatelessWidget {
                     CrossAxisAlignment.end,
                 children: [
                   Align(
-                    alignment: Alignment.centerLeft,
+                    alignment:
+                        Alignment.centerLeft,
                     child: hasSharedDiary
                         ? _SharedDiaryMessageCard(
                             isMine: isMine,
@@ -1004,7 +1121,8 @@ class _MessageBubble extends StatelessWidget {
                       color: timeColor,
                       fontSize: 11,
                       height: 1,
-                      fontWeight: FontWeight.w500,
+                      fontWeight:
+                          FontWeight.w500,
                     ),
                   ),
                 ],
@@ -1016,12 +1134,13 @@ class _MessageBubble extends StatelessWidget {
     );
   }
 
-  String _formatTime(DateTime? value) {
+  String _formatTime(
+    DateTime? value,
+  ) {
     if (value == null) {
       return '';
     }
-    // Приводим к локальному времени на всякий случай —
-    // это защищает от случаев, когда значение ещё UTC.
+
     final local = value.toLocal();
 
     final hour = local.hour
@@ -1035,6 +1154,10 @@ class _MessageBubble extends StatelessWidget {
     return '$hour:$minute';
   }
 }
+
+// ============================================================
+// SHARED DIARY CARD
+// ============================================================
 
 class _SharedDiaryMessageCard
     extends StatelessWidget {
@@ -1131,6 +1254,10 @@ class _SharedDiaryMessageCard
   }
 }
 
+// ============================================================
+// SHARED DIARY BUTTON
+// ============================================================
+
 class _SharedDiaryOpenButton
     extends StatelessWidget {
   final bool isLoading;
@@ -1186,9 +1313,15 @@ class _SharedDiaryOpenButton
   }
 }
 
+// ============================================================
+// MESSAGE INPUT
+// ============================================================
+
 class _MessageInput extends StatelessWidget {
   final TextEditingController controller;
+
   final bool isSending;
+
   final VoidCallback onSend;
 
   const _MessageInput({
@@ -1241,7 +1374,8 @@ class _MessageInput extends StatelessWidget {
               ),
               decoration: BoxDecoration(
                 color: inputBackground,
-                borderRadius: AppRadius.large,
+                borderRadius:
+                    AppRadius.large,
                 border: Border.all(
                   color: inputBorder,
                   width: 1,
@@ -1279,7 +1413,8 @@ class _MessageInput extends StatelessWidget {
                       InputBorder.none,
                   contentPadding:
                       const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.lg,
+                    horizontal:
+                        AppSpacing.lg,
                     vertical: 13,
                   ),
                 ),
@@ -1297,7 +1432,8 @@ class _MessageInput extends StatelessWidget {
                   isSending ? null : onSend,
               style: FilledButton.styleFrom(
                 padding: EdgeInsets.zero,
-                shape: RoundedRectangleBorder(
+                shape:
+                    RoundedRectangleBorder(
                   borderRadius:
                       AppRadius.large,
                 ),
@@ -1322,6 +1458,10 @@ class _MessageInput extends StatelessWidget {
     );
   }
 }
+
+// ============================================================
+// EMPTY STATE
+// ============================================================
 
 class _EmptyMessagesState
     extends StatelessWidget {

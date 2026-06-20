@@ -168,9 +168,6 @@ class _TherapistHomeContent extends StatelessWidget {
     final isApproved = myProfile.status == 'approved';
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Главная'),
-      ),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -222,14 +219,6 @@ class _TherapistHomeContent extends StatelessWidget {
                         style: theme.textTheme.titleLarge,
                       ),
                       const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        'Одобренные анкеты специалистов, доступные в каталоге.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-
                       if (data.otherTherapists.isEmpty)
                         AppCard(
                           hasShadow: false,

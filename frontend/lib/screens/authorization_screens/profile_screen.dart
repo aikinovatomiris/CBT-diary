@@ -513,21 +513,6 @@ class _ProfileContent
                         height:
                             AppSpacing.sm,
                       ),
-                      Text(
-                        'Данные аккаунта и настройки приложения.',
-                        style: theme
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(
-                          color: theme
-                              .colorScheme
-                              .onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(
-                        height:
-                            AppSpacing.xl,
-                      ),
                       AppCard(
                         hasShadow: false,
                         child: Column(

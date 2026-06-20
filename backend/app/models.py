@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     Boolean,
@@ -684,4 +684,66 @@ class ConversationMessage(Base):
     shared_diary_entry = relationship(
         "DiaryEntry",
         back_populates="shared_in_conversation_messages",
+    )
+    
+class AppNotification(Base):
+    __tablename__ = "app_notifications"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
+
+    user_id = Column(
+        Integer,
+        ForeignKey(
+            "users.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+        index=True,
+    )
+
+    conversation_id = Column(
+        Integer,
+        ForeignKey(
+            "conversations.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+        index=True,
+    )
+
+    sender_id = Column(
+        Integer,
+        ForeignKey(
+            "users.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+
+    sender_name = Column(
+        String(255),
+        nullable=False,
+    )
+
+    title = Column(
+        String(255),
+        default="Новое сообщение",
+        nullable=False,
+    )
+
+    is_read = Column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        default=utc_now,
+        nullable=False,
+        index=True,
     )

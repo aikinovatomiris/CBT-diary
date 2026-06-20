@@ -4,8 +4,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.database import Base, check_database_connection, engine
 from app import models
+from app.database import (
+    Base,
+    check_database_connection,
+    engine,
+)
 from app.routers import (
     admin,
     analytics,
@@ -13,8 +17,8 @@ from app.routers import (
     cbt,
     conversations,
     diary,
-    diary,
     guest,
+    notifications,
     profile,
     therapist,
     therapists,
@@ -23,12 +27,17 @@ from app.routers import (
 
 app = FastAPI(
     title="CBT Diary Backend",
-    description="Backend для мобильного приложения КПТ-дневника с ИИ-помощником",
+    description=(
+        "Backend для мобильного приложения "
+        "КПТ-дневника с ИИ-помощником"
+    ),
     version="1.0.0",
 )
 
 
-Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(
+    bind=engine
+)
 
 
 app.add_middleware(
@@ -48,7 +57,9 @@ uploads_dir.mkdir(
 
 app.mount(
     "/uploads",
-    StaticFiles(directory="uploads"),
+    StaticFiles(
+        directory="uploads"
+    ),
     name="uploads",
 )
 
@@ -63,12 +74,15 @@ app.include_router(therapists.router)
 app.include_router(admin.router)
 app.include_router(guest.router)
 app.include_router(conversations.router)
+app.include_router(notifications.router)
 
 
 @app.get("/")
 def root():
     return {
-        "message": "CBT Diary Backend is running"
+        "message": (
+            "CBT Diary Backend is running"
+        )
     }
 
 
@@ -81,15 +95,17 @@ def health_check():
 
 @app.get("/db-check")
 def db_check():
-    is_connected = check_database_connection()
+    is_connected = (
+        check_database_connection()
+    )
 
     if is_connected:
         return {
             "status": "ok",
-            "database": "connected"
+            "database": "connected",
         }
 
     return {
         "status": "error",
-        "database": "not connected"
+        "database": "not connected",
     }

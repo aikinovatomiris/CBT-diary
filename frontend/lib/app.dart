@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'navigation/app_router.dart';
 import 'theme/app_theme.dart';
 import 'utils/theme_controller.dart';
+import 'widgets/in_app_notification_host.dart';
 
 class CbtDiaryApp extends StatelessWidget {
   const CbtDiaryApp({
@@ -33,7 +34,8 @@ class CbtDiaryApp extends StatelessWidget {
             final isDark =
                 theme.brightness == Brightness.dark;
 
-            final overlayStyle = SystemUiOverlayStyle(
+            final overlayStyle =
+                SystemUiOverlayStyle(
               statusBarColor: Colors.transparent,
 
               statusBarIconBrightness: isDark
@@ -66,10 +68,12 @@ class CbtDiaryApp extends StatelessWidget {
                 SystemUiOverlayStyle>(
               value: overlayStyle,
               child: ColoredBox(
-
-                color: theme.scaffoldBackgroundColor,
-                child: child ??
-                    const SizedBox.shrink(),
+                color:
+                    theme.scaffoldBackgroundColor,
+                child: InAppNotificationHost(
+                  child: child ??
+                      const SizedBox.shrink(),
+                ),
               ),
             );
           },

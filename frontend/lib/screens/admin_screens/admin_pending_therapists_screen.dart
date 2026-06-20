@@ -151,9 +151,6 @@ class _AdminPendingTherapistsScreenState
 
     if (_errorMessage != null) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('Терапевты'),
-        ),
         body: AppErrorView(
           message: _errorMessage!,
           onRetry: _loadPendingTherapists,
@@ -188,24 +185,6 @@ class _AdminPendingTherapistsContent extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Терапевты'),
-        actions: [
-          IconButton(
-            tooltip: 'Обновить',
-            onPressed: isRefreshing ? null : onRefresh,
-            icon: isRefreshing
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                    ),
-                  )
-                : const Icon(Icons.refresh_rounded),
-          ),
-        ],
-      ),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
