@@ -708,35 +708,6 @@ class _TherapistDetailContent
                                   AppSpacing
                                       .md,
                             ),
-                            Text(
-                              therapist
-                                      .isFavorite
-                                  ? 'Добавлен в закладки'
-                                  : 'Можно сохранить специалиста в закладки',
-                              textAlign:
-                                  TextAlign
-                                      .center,
-                              style: theme
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(
-                                color: therapist
-                                        .isFavorite
-                                    ? theme
-                                        .colorScheme
-                                        .primary
-                                    : theme
-                                        .colorScheme
-                                        .onSurfaceVariant,
-                                fontWeight:
-                                    therapist
-                                            .isFavorite
-                                        ? FontWeight
-                                            .w700
-                                        : FontWeight
-                                            .w500,
-                              ),
-                            ),
                           ],
                           if (canWriteToTherapist) ...[
                             const SizedBox(

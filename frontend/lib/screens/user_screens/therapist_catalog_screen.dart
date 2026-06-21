@@ -1,5 +1,3 @@
-// ignore_for_file: deprecated_member_use
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -10,59 +8,47 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/url_helper.dart';
-import '../../widgets/app_button.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/app_error_view.dart';
 import '../../widgets/app_loading.dart';
 import '../../widgets/user_messages_action.dart';
 import '../../widgets/app_text_field.dart';
 
-class TherapistCatalogScreen
-    extends StatefulWidget {
+class TherapistCatalogScreen extends StatefulWidget {
   const TherapistCatalogScreen({
     super.key,
   });
 
   @override
-  State<TherapistCatalogScreen>
-  createState() =>
+  State<TherapistCatalogScreen> createState() =>
       _TherapistCatalogScreenState();
 }
 
-class _TherapistCatalogScreenState
-    extends State<TherapistCatalogScreen> {
-  final TextEditingController
-  _searchController =
-      TextEditingController();
+class _TherapistCatalogScreenState extends State<TherapistCatalogScreen> {
+  final TextEditingController _searchController = TextEditingController();
 
-  final TextEditingController
-  _cityController =
-      TextEditingController();
+  final TextEditingController _cityController = TextEditingController();
 
-  late Future<List<TherapistProfileModel>>
-  _therapistsFuture;
+  late Future<List<TherapistProfileModel>> _therapistsFuture;
 
-  List<TherapistProfileModel>
-  _allTherapists = [];
+  List<TherapistProfileModel> _allTherapists = [];
 
-  List<TherapistProfileModel>
-  _filteredTherapists = [];
+  List<TherapistProfileModel> _filteredTherapists = [];
 
-  final Set<int> _updatingFavoriteIds =
-      <int>{};
+  final Set<int> _updatingFavoriteIds = <int>{};
 
   String _searchQuery = '';
   String _cityFilter = '';
 
   bool? _onlineAvailable;
   bool _favoritesOnly = false;
+  String _ratingSortOrder = 'none';
 
   @override
   void initState() {
     super.initState();
 
-    _therapistsFuture =
-        _loadTherapists();
+    _therapistsFuture = _loadTherapists();
   }
 
   @override
@@ -73,43 +59,29 @@ class _TherapistCatalogScreenState
     super.dispose();
   }
 
-  Future<List<TherapistProfileModel>>
-  _loadTherapists() async {
-    final therapists =
-        await TherapistService
-            .getApprovedTherapists(
-      city:
-          _cityFilter.isEmpty
-              ? null
-              : _cityFilter,
-      onlineAvailable:
-          _onlineAvailable,
-      favoritesOnly:
-          _favoritesOnly,
+  Future<List<TherapistProfileModel>> _loadTherapists() async {
+    final therapists = await TherapistService.getApprovedTherapists(
+      city: _cityFilter.isEmpty ? null : _cityFilter,
+      onlineAvailable: _onlineAvailable,
+      favoritesOnly: _favoritesOnly,
     );
 
-    final approvedTherapists =
-        therapists.where(
+    final approvedTherapists = therapists.where(
       (therapist) {
-        return therapist.status == null ||
-            therapist.status ==
-                'approved';
+        return therapist.status == null || therapist.status == 'approved';
       },
     ).toList();
 
-    _allTherapists =
-        approvedTherapists;
+    _allTherapists = approvedTherapists;
 
-    _filteredTherapists =
-        _calculateFilteredTherapists();
+    _filteredTherapists = _calculateFilteredTherapists();
 
     return approvedTherapists;
   }
 
   Future<void> _refresh() async {
     setState(() {
-      _therapistsFuture =
-          _loadTherapists();
+      _therapistsFuture = _loadTherapists();
     });
 
     await _therapistsFuture;
@@ -118,8 +90,7 @@ class _TherapistCatalogScreenState
   void _onSearchChanged(
     String value,
   ) {
-    _searchQuery =
-        value.trim().toLowerCase();
+    _searchQuery = value.trim().toLowerCase();
 
     _applyFilters();
   }
@@ -127,8 +98,7 @@ class _TherapistCatalogScreenState
   void _onCityChanged(
     String value,
   ) {
-    _cityFilter =
-        value.trim().toLowerCase();
+    _cityFilter = value.trim().toLowerCase();
 
     _applyFilters();
   }
@@ -137,72 +107,67 @@ class _TherapistCatalogScreenState
     setState(() {
       if (_onlineAvailable == null) {
         _onlineAvailable = true;
-      } else if (_onlineAvailable ==
-          true) {
+      } else if (_onlineAvailable == true) {
         _onlineAvailable = false;
       } else {
         _onlineAvailable = null;
       }
 
-      _therapistsFuture =
-          _loadTherapists();
+      _therapistsFuture = _loadTherapists();
     });
   }
 
   void _toggleFavoritesFilter() {
     setState(() {
-      _favoritesOnly =
-          !_favoritesOnly;
+      _favoritesOnly = !_favoritesOnly;
 
-      _therapistsFuture =
-          _loadTherapists();
+      _therapistsFuture = _loadTherapists();
     });
   }
 
-  List<TherapistProfileModel>
-  _calculateFilteredTherapists() {
-    return _allTherapists.where(
+  void _setRatingSortOrder(
+    String order,
+  ) {
+    setState(() {
+      _ratingSortOrder = order;
+      _applyFilters();
+    });
+  }
+
+  void _setOnlineAvailable(
+    bool? value,
+  ) {
+    setState(() {
+      _onlineAvailable = value;
+      _therapistsFuture = _loadTherapists();
+    });
+  }
+
+  List<TherapistProfileModel> _calculateFilteredTherapists() {
+    var filtered = _allTherapists.where(
       (therapist) {
         final searchText = [
           therapist.fullName,
           therapist.qualification,
-          therapist.specializations
-              .join(' '),
-          therapist.therapyApproaches
-              .join(' '),
-        ].whereType<String>().join(' ')
-          .toLowerCase();
+          therapist.specializations.join(' '),
+          therapist.therapyApproaches.join(' '),
+        ].whereType<String>().join(' ').toLowerCase();
 
-        final city =
-            therapist.city
-                ?.toLowerCase() ??
-            '';
+        final city = therapist.city?.toLowerCase() ?? '';
 
         final matchesSearch =
-            _searchQuery.isEmpty ||
-            searchText.contains(
-              _searchQuery,
-            );
+            _searchQuery.isEmpty || searchText.contains(_searchQuery);
 
-        final matchesCity =
-            _cityFilter.isEmpty ||
-            city.contains(
-              _cityFilter,
-            );
+        final matchesCity = _cityFilter.isEmpty || city.contains(_cityFilter);
 
         final matchesOnline =
             _onlineAvailable == null ||
-            therapist.onlineAvailable ==
-                _onlineAvailable;
+            therapist.onlineAvailable == _onlineAvailable;
 
-        final matchesFavorite =
-            !_favoritesOnly ||
-            therapist.isFavorite;
+        final matchesFavorite = !_favoritesOnly || therapist.isFavorite;
 
         final isApproved =
-            therapist.status == null ||
-            therapist.status ==
-                'approved';
+            therapist.status == null || therapist.status == 'approved';
 
         return isApproved &&
             matchesSearch &&
@@ -211,6 +176,18 @@ class _TherapistCatalogScreenState
             matchesFavorite;
       },
     ).toList();
+
+    if (_ratingSortOrder == 'highest') {
+      filtered.sort(
+        (a, b) {
+          final aRating = a.averageRating ?? 0.0;
+          final bRating = b.averageRating ?? 0.0;
+          return bRating.compareTo(aRating);
+        },
+      );
+    }
+
+    return filtered;
   }
 
   void _applyFilters() {
@@ -219,8 +196,7 @@ class _TherapistCatalogScreenState
     }
 
     setState(() {
-      _filteredTherapists =
-          _calculateFilteredTherapists();
+      _filteredTherapists = _calculateFilteredTherapists();
     });
   }
 
@@ -237,17 +213,13 @@ class _TherapistCatalogScreenState
       return;
     }
 
-    if (_updatingFavoriteIds.contains(
-      profileId,
-    )) {
+    if (_updatingFavoriteIds.contains(profileId)) {
       return;
     }
 
-    final oldValue =
-        therapist.isFavorite;
+    final oldValue = therapist.isFavorite;
 
-    final optimisticValue =
-        !oldValue;
+    final optimisticValue = !oldValue;
 
     _replaceTherapistFavoriteState(
       profileId: profileId,
@@ -256,12 +228,9 @@ class _TherapistCatalogScreenState
     );
 
     try {
-      final savedValue =
-          await TherapistService
-              .setFavorite(
+      final savedValue = await TherapistService.setFavorite(
         profileId: profileId,
-        isFavorite:
-            optimisticValue,
+        isFavorite: optimisticValue,
       );
 
       if (!mounted) {
@@ -314,11 +283,9 @@ class _TherapistCatalogScreenState
     }
 
     setState(() {
-      _allTherapists =
-          _allTherapists.map(
+      _allTherapists = _allTherapists.map(
         (therapist) {
-          if (therapist.id !=
-              profileId) {
+          if (therapist.id != profileId) {
             return therapist;
           }
 
@@ -329,17 +296,12 @@ class _TherapistCatalogScreenState
       ).toList();
 
       if (isUpdating) {
-        _updatingFavoriteIds.add(
-          profileId,
-        );
+        _updatingFavoriteIds.add(profileId);
       } else {
-        _updatingFavoriteIds.remove(
-          profileId,
-        );
+        _updatingFavoriteIds.remove(profileId);
       }
 
-      _filteredTherapists =
-          _calculateFilteredTherapists();
+      _filteredTherapists = _calculateFilteredTherapists();
     });
   }
 
@@ -356,17 +318,12 @@ class _TherapistCatalogScreenState
       return;
     }
 
-    await context.push(
-      '/specialists/$id',
-    );
+    await context.push('/specialists/$id');
 
     if (!mounted) {
       return;
     }
 
-    // Повторно получаем данные, чтобы состояние
-    // закладки после детального экрана сразу
-    // отобразилось в каталоге.
     await _refresh();
   }
 
@@ -377,38 +334,22 @@ class _TherapistCatalogScreenState
       return;
     }
 
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
       ),
     );
   }
 
-  String _onlineFilterTitle() {
-    if (_onlineAvailable == null) {
-      return 'Все форматы';
-    }
-
-    if (_onlineAvailable == true) {
-      return 'Только онлайн';
-    }
-
-    return 'Только очно';
-  }
-
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<
-        List<TherapistProfileModel>>(
+    return FutureBuilder<List<TherapistProfileModel>>(
       future: _therapistsFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState ==
-            ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: AppLoading(
-              text:
-                  'Загрузка специалистов...',
+              text: 'Загрузка специалистов...',
             ),
           );
         }
@@ -416,10 +357,9 @@ class _TherapistCatalogScreenState
         if (snapshot.hasError) {
           final error = snapshot.error;
 
-          final message =
-              error is ApiException
-                  ? error.message
-                  : 'Не удалось загрузить каталог специалистов.';
+          final message = error is ApiException
+              ? error.message
+              : 'Не удалось загрузить каталог специалистов.';
 
           return Scaffold(
             body: SafeArea(
@@ -441,79 +381,58 @@ class _TherapistCatalogScreenState
         }
 
         return _TherapistCatalogContent(
-          searchController:
-              _searchController,
-          cityController:
-              _cityController,
-          therapists:
-              _filteredTherapists,
-          hasAnyTherapists:
-              _allTherapists.isNotEmpty,
-          favoritesOnly:
-              _favoritesOnly,
-          onlineFilterTitle:
-              _onlineFilterTitle(),
-          updatingFavoriteIds:
-              _updatingFavoriteIds,
-          onSearchChanged:
-              _onSearchChanged,
-          onCityChanged:
-              _onCityChanged,
-          onToggleOnlineFilter:
-              _toggleOnlineFilter,
-          onToggleFavoritesFilter:
-              _toggleFavoritesFilter,
-          onToggleFavorite:
-              _toggleFavorite,
+          searchController: _searchController,
+          cityController: _cityController,
+          therapists: _filteredTherapists,
+          hasAnyTherapists: _allTherapists.isNotEmpty,
+          favoritesOnly: _favoritesOnly,
+          onlineAvailable: _onlineAvailable,
+          ratingSortOrder: _ratingSortOrder,
+          updatingFavoriteIds: _updatingFavoriteIds,
+          onSearchChanged: _onSearchChanged,
+          onCityChanged: _onCityChanged,
+          onSetOnlineAvailable: _setOnlineAvailable,
+          onSetRatingSortOrder: _setRatingSortOrder,
+          onToggleFavoritesFilter: _toggleFavoritesFilter,
+          onToggleFavorite: _toggleFavorite,
           onRefresh: _refresh,
-          onOpenTherapist:
-              _openTherapist,
+          onOpenTherapist: _openTherapist,
         );
       },
     );
   }
 }
 
-class _TherapistCatalogContent
-    extends StatelessWidget {
-  final TextEditingController
-  searchController;
+class _TherapistCatalogContent extends StatelessWidget {
+  final TextEditingController searchController;
 
-  final TextEditingController
-  cityController;
+  final TextEditingController cityController;
 
-  final List<TherapistProfileModel>
-  therapists;
+  final List<TherapistProfileModel> therapists;
 
   final bool hasAnyTherapists;
   final bool favoritesOnly;
 
-  final String onlineFilterTitle;
+  final bool? onlineAvailable;
+  final String ratingSortOrder;
 
   final Set<int> updatingFavoriteIds;
 
-  final ValueChanged<String>
-  onSearchChanged;
+  final ValueChanged<String> onSearchChanged;
 
-  final ValueChanged<String>
-  onCityChanged;
+  final ValueChanged<String> onCityChanged;
 
-  final VoidCallback
-  onToggleOnlineFilter;
+  final ValueChanged<bool?> onSetOnlineAvailable;
 
-  final VoidCallback
-  onToggleFavoritesFilter;
+  final ValueChanged<String> onSetRatingSortOrder;
 
-  final ValueChanged<
-      TherapistProfileModel>
-  onToggleFavorite;
+  final VoidCallback onToggleFavoritesFilter;
 
-  final Future<void> Function()
-  onRefresh;
+  final ValueChanged<TherapistProfileModel> onToggleFavorite;
 
-  final ValueChanged<
-      TherapistProfileModel>
-  onOpenTherapist;
+  final Future<void> Function() onRefresh;
+
+  final ValueChanged<TherapistProfileModel> onOpenTherapist;
 
   const _TherapistCatalogContent({
     required this.searchController,
@@ -521,11 +440,13 @@ class _TherapistCatalogContent
     required this.therapists,
     required this.hasAnyTherapists,
     required this.favoritesOnly,
-    required this.onlineFilterTitle,
+    required this.onlineAvailable,
+    required this.ratingSortOrder,
     required this.updatingFavoriteIds,
     required this.onSearchChanged,
     required this.onCityChanged,
-    required this.onToggleOnlineFilter,
+    required this.onSetOnlineAvailable,
+    required this.onSetRatingSortOrder,
     required this.onToggleFavoritesFilter,
     required this.onToggleFavorite,
     required this.onRefresh,
@@ -541,26 +462,18 @@ class _TherapistCatalogContent
             context,
             constraints,
           ) {
-            final isWide =
-                constraints.maxWidth >
-                760;
+            final isWide = constraints.maxWidth > 760;
 
             return Center(
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxWidth:
-                      isWide
-                          ? 720
-                          : double.infinity,
+                  maxWidth: isWide ? 720 : double.infinity,
                 ),
                 child: RefreshIndicator(
                   onRefresh: onRefresh,
                   child: ListView(
-                    physics:
-                        const AlwaysScrollableScrollPhysics(),
-                    padding:
-                        const EdgeInsets
-                            .fromLTRB(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(
                       AppSpacing.xl,
                       AppSpacing.xl,
                       AppSpacing.xl,
@@ -568,90 +481,54 @@ class _TherapistCatalogContent
                     ),
                     children: [
                       const _CatalogHeader(),
-
                       const SizedBox(
-                        height:
-                            AppSpacing.xl,
+                        height: AppSpacing.xl,
                       ),
-
                       AppTextField(
-                        controller:
-                            searchController,
+                        controller: searchController,
                         hint:
                             'Поиск по ФИО, квалификации, специализации или подходу',
-                        prefixIcon:
-                            Icons
-                                .search_rounded,
-                        onChanged:
-                            onSearchChanged,
+                        prefixIcon: Icons.search_rounded,
+                        onChanged: onSearchChanged,
                       ),
-
                       const SizedBox(
-                        height:
-                            AppSpacing.md,
+                        height: AppSpacing.md,
                       ),
-
                       AppTextField(
-                        controller:
-                            cityController,
-                        hint:
-                            'Фильтр по городу',
-                        prefixIcon:
-                            Icons
-                                .location_city_outlined,
-                        onChanged:
-                            onCityChanged,
+                        controller: cityController,
+                        hint: 'Фильтр по городу',
+                        prefixIcon: Icons.location_city_outlined,
+                        onChanged: onCityChanged,
                       ),
-
                       const SizedBox(
-                        height:
-                            AppSpacing.md,
+                        height: AppSpacing.md,
                       ),
-
                       Wrap(
-                        spacing:
-                            AppSpacing.sm,
-                        runSpacing:
-                            AppSpacing.sm,
+                        spacing: AppSpacing.sm,
+                        runSpacing: AppSpacing.sm,
                         children: [
-                          _CatalogFilterButton(
-                            title:
-                                onlineFilterTitle,
-                            icon:
-                                Icons
-                                    .tune_rounded,
-                            isActive:
-                                onlineFilterTitle !=
-                                'Все форматы',
-                            onTap:
-                                onToggleOnlineFilter,
+                          _FilterMenuButton(
+                            onlineAvailable: onlineAvailable,
+                            ratingSortOrder: ratingSortOrder,
+                            onSetOnlineAvailable: onSetOnlineAvailable,
+                            onSetRatingSortOrder: onSetRatingSortOrder,
                           ),
                           _CatalogFilterButton(
-                            title:
-                                favoritesOnly
-                                    ? 'В закладках'
-                                    : 'Все специалисты',
-                            icon:
-                                favoritesOnly
-                                    ? Icons
-                                        .bookmark_rounded
-                                    : Icons
-                                        .bookmark_border_rounded,
-                            isActive:
-                                favoritesOnly,
-                            onTap:
-                                onToggleFavoritesFilter,
+                            title: favoritesOnly
+                                ? 'В закладках'
+                                : 'Все специалисты',
+                            icon: favoritesOnly
+                                ? Icons.bookmark_rounded
+                                : Icons.bookmark_border_rounded,
+                            isActive: favoritesOnly,
+                            onTap: onToggleFavoritesFilter,
                           ),
                         ],
                       ),
-
                       const SizedBox(
-                        height:
-                            AppSpacing.lg,
+                        height: AppSpacing.lg,
                       ),
-
-                      if (favoritesOnly &&
-                          therapists.isEmpty)
+                      if (favoritesOnly && therapists.isEmpty)
                         const _EmptyFavoritesState()
                       else if (!hasAnyTherapists)
                         const _EmptyTherapistsState()
@@ -660,37 +537,21 @@ class _TherapistCatalogContent
                       else
                         ...therapists.map(
                           (therapist) {
-                            final id =
-                                therapist.id;
+                            final id = therapist.id;
 
                             return Padding(
-                              padding:
-                                  const EdgeInsets
-                                      .only(
-                                bottom:
-                                    AppSpacing
-                                        .lg,
+                              padding: const EdgeInsets.only(
+                                bottom: AppSpacing.lg,
                               ),
-                              child:
-                                  _TherapistCard(
-                                therapist:
-                                    therapist,
-                                isFavoriteUpdating:
-                                    id != null &&
-                                    updatingFavoriteIds
-                                        .contains(
-                                      id,
-                                    ),
-                                onToggleFavorite:
-                                    () {
-                                  onToggleFavorite(
-                                    therapist,
-                                  );
+                              child: _TherapistCard(
+                                therapist: therapist,
+                                isFavoriteUpdating: id != null &&
+                                    updatingFavoriteIds.contains(id),
+                                onToggleFavorite: () {
+                                  onToggleFavorite(therapist);
                                 },
                                 onTap: () {
-                                  onOpenTherapist(
-                                    therapist,
-                                  );
+                                  onOpenTherapist(therapist);
                                 },
                               ),
                             );
@@ -708,8 +569,7 @@ class _TherapistCatalogContent
   }
 }
 
-class _CatalogHeader
-    extends StatelessWidget {
+class _CatalogHeader extends StatelessWidget {
   final bool compact;
 
   const _CatalogHeader({
@@ -718,61 +578,39 @@ class _CatalogHeader
 
   @override
   Widget build(BuildContext context) {
-    final theme =
-        Theme.of(context);
+    final theme = Theme.of(context);
 
-    final horizontalPadding =
-        compact
-            ? AppSpacing.xl
-            : 0.0;
+    final horizontalPadding = compact ? AppSpacing.xl : 0.0;
 
-    final verticalPadding =
-        compact
-            ? AppSpacing.xl
-            : 0.0;
+    final verticalPadding = compact ? AppSpacing.xl : 0.0;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
         horizontalPadding,
         verticalPadding,
         horizontalPadding,
-        compact
-            ? AppSpacing.md
-            : 0,
+        compact ? AppSpacing.md : 0,
       ),
       child: Row(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment
-                      .start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Специалисты',
-                  style: theme
-                      .textTheme
-                      .headlineMedium
-                      ?.copyWith(
-                    letterSpacing:
-                        -0.7,
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    letterSpacing: -0.7,
                   ),
                 ),
                 const SizedBox(
-                  height:
-                      AppSpacing.sm,
+                  height: AppSpacing.sm,
                 ),
                 Text(
                   'Каталог одобренных терапевтов',
-                  style: theme
-                      .textTheme
-                      .bodyMedium
-                      ?.copyWith(
-                    color: theme
-                        .colorScheme
-                        .onSurfaceVariant,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -788,36 +626,26 @@ class _CatalogHeader
   }
 }
 
-class _MessagesActionShell
-    extends StatelessWidget {
+class _MessagesActionShell extends StatelessWidget {
   const _MessagesActionShell();
 
   @override
   Widget build(BuildContext context) {
-    final theme =
-        Theme.of(context);
+    final theme = Theme.of(context);
 
-    final isDark =
-        theme.brightness ==
-        Brightness.dark;
+    final isDark = theme.brightness == Brightness.dark;
 
     final backgroundColor =
-        isDark
-            ? AppColors.darkSurface
-            : AppColors.lightSurface;
+        isDark ? AppColors.darkSurface : AppColors.lightSurface;
 
-    final borderColor =
-        isDark
-            ? AppColors.darkBorder
-            : AppColors.lightBorder;
+    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
 
     return Container(
       width: 48,
       height: 48,
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius:
-            AppRadius.large,
+        borderRadius: AppRadius.large,
         border: Border.all(
           color: borderColor,
           width: 1,
@@ -834,19 +662,249 @@ class _MessagesActionShell
       ),
       child: IconTheme(
         data: IconThemeData(
-          color: theme
-              .colorScheme.primary,
+          color: theme.colorScheme.primary,
           size: 21,
         ),
-        child:
-            const UserMessagesAction(),
+        child: const UserMessagesAction(),
       ),
     );
   }
 }
 
-class _CatalogFilterButton
-    extends StatelessWidget {
+class _FilterMenuButton extends StatelessWidget {
+  final bool? onlineAvailable;
+  final String ratingSortOrder;
+  final ValueChanged<bool?> onSetOnlineAvailable;
+  final ValueChanged<String> onSetRatingSortOrder;
+
+  const _FilterMenuButton({
+    required this.onlineAvailable,
+    required this.ratingSortOrder,
+    required this.onSetOnlineAvailable,
+    required this.onSetRatingSortOrder,
+  });
+
+  String _getFilterTitle() {
+    final hasOnlineFilter = onlineAvailable != null;
+    final hasRatingFilter = ratingSortOrder != 'none';
+
+    if (hasOnlineFilter && hasRatingFilter) {
+      return 'Фильтры активны';
+    }
+
+    if (hasOnlineFilter || hasRatingFilter) {
+      return 'Фильтр активен';
+    }
+
+    return 'Фильтры';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    final isDark = theme.brightness == Brightness.dark;
+
+    final hasActiveFilters = onlineAvailable != null || ratingSortOrder != 'none';
+
+    final backgroundColor = hasActiveFilters
+        ? theme.colorScheme.primary.withOpacity(isDark ? 0.18 : 0.11)
+        : isDark
+            ? AppColors.darkSurface
+            : AppColors.lightSurface;
+
+    final borderColor = hasActiveFilters
+        ? theme.colorScheme.primary.withOpacity(isDark ? 0.28 : 0.16)
+        : isDark
+            ? AppColors.darkBorder
+            : AppColors.lightBorder;
+
+    final contentColor = hasActiveFilters
+        ? theme.colorScheme.primary
+        : theme.colorScheme.onSurface;
+
+    return PopupMenuButton<String>(
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.large,
+      ),
+      onSelected: (value) {},
+      itemBuilder: (BuildContext context) {
+        return [
+          PopupMenuItem<String>(
+            enabled: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Формат',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(
+                  height: AppSpacing.sm,
+                ),
+                _FilterMenuOption(
+                  title: 'Все форматы',
+                  isSelected: onlineAvailable == null,
+                  onTap: () {
+                    onSetOnlineAvailable(null);
+                    Navigator.pop(context);
+                  },
+                ),
+                _FilterMenuOption(
+                  title: 'Только онлайн',
+                  isSelected: onlineAvailable == true,
+                  onTap: () {
+                    onSetOnlineAvailable(true);
+                    Navigator.pop(context);
+                  },
+                ),
+                _FilterMenuOption(
+                  title: 'Только очно',
+                  isSelected: onlineAvailable == false,
+                  onTap: () {
+                    onSetOnlineAvailable(false);
+                    Navigator.pop(context);
+                  },
+                ),
+                const SizedBox(
+                  height: AppSpacing.md,
+                ),
+                Divider(
+                  height: 1,
+                  color: theme.colorScheme.outlineVariant,
+                ),
+                const SizedBox(
+                  height: AppSpacing.md,
+                ),
+                Text(
+                  'Рейтинг',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(
+                  height: AppSpacing.sm,
+                ),
+                _FilterMenuOption(
+                  title: 'По умолчанию',
+                  isSelected: ratingSortOrder == 'none',
+                  onTap: () {
+                    onSetRatingSortOrder('none');
+                    Navigator.pop(context);
+                  },
+                ),
+                _FilterMenuOption(
+                  title: 'Самый высокий рейтинг',
+                  isSelected: ratingSortOrder == 'highest',
+                  onTap: () {
+                    onSetRatingSortOrder('highest');
+                    Navigator.pop(context);
+                  },
+                ),
+              ],
+            ),
+          ),
+        ];
+      },
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: AppRadius.large,
+            border: Border.all(
+              color: borderColor,
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.tune_rounded,
+                size: 17,
+                color: contentColor,
+              ),
+              const SizedBox(
+                width: AppSpacing.sm,
+              ),
+              Text(
+                _getFilterTitle(),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: contentColor,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.05,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterMenuOption extends StatelessWidget {
+  final String title;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _FilterMenuOption({
+    required this.title,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.sm,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isSelected ? Icons.check_circle_rounded : Icons.circle_outlined,
+              size: 20,
+              color: isSelected
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(
+              width: AppSpacing.sm,
+            ),
+            Text(
+              title,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected
+                    ? theme.colorScheme.onSurface
+                    : theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CatalogFilterButton extends StatelessWidget {
   final String title;
   final IconData icon;
   final bool isActive;
@@ -861,74 +919,45 @@ class _CatalogFilterButton
 
   @override
   Widget build(BuildContext context) {
-    final theme =
-        Theme.of(context);
+    final theme = Theme.of(context);
 
-    final isDark =
-        theme.brightness ==
-        Brightness.dark;
+    final isDark = theme.brightness == Brightness.dark;
 
-    final backgroundColor =
-        isActive
-            ? theme
-                .colorScheme.primary
-                .withOpacity(
-                  isDark
-                      ? 0.18
-                      : 0.11,
-                )
-            : isDark
+    final backgroundColor = isActive
+        ? theme.colorScheme.primary.withOpacity(isDark ? 0.18 : 0.11)
+        : isDark
             ? AppColors.darkSurface
             : AppColors.lightSurface;
 
-    final borderColor =
-        isActive
-            ? theme
-                .colorScheme.primary
-                .withOpacity(
-                  isDark
-                      ? 0.28
-                      : 0.16,
-                )
-            : isDark
+    final borderColor = isActive
+        ? theme.colorScheme.primary.withOpacity(isDark ? 0.28 : 0.16)
+        : isDark
             ? AppColors.darkBorder
             : AppColors.lightBorder;
 
     final contentColor =
-        isActive
-            ? theme
-                .colorScheme.primary
-            : theme
-                .colorScheme.onSurface;
+        isActive ? theme.colorScheme.primary : theme.colorScheme.onSurface;
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius:
-            AppRadius.large,
+        borderRadius: AppRadius.large,
         child: Container(
-          padding:
-              const EdgeInsets
-                  .symmetric(
-            horizontal:
-                AppSpacing.md,
-            vertical:
-                AppSpacing.sm,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
           ),
-          decoration:
-              BoxDecoration(
+          decoration: BoxDecoration(
             color: backgroundColor,
-            borderRadius:
-                AppRadius.large,
+            borderRadius: AppRadius.large,
             border: Border.all(
               color: borderColor,
               width: 1,
             ),
           ),
           child: Row(
-            mainAxisSize:
-                MainAxisSize.min,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 icon,
@@ -936,22 +965,14 @@ class _CatalogFilterButton
                 color: contentColor,
               ),
               const SizedBox(
-                width:
-                    AppSpacing.sm,
+                width: AppSpacing.sm,
               ),
               Text(
                 title,
-                style: theme
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(
-                  color:
-                      contentColor,
-                  fontWeight:
-                      FontWeight
-                          .w700,
-                  letterSpacing:
-                      -0.05,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: contentColor,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.05,
                 ),
               ),
             ],
@@ -962,10 +983,8 @@ class _CatalogFilterButton
   }
 }
 
-class _TherapistCard
-    extends StatelessWidget {
-  final TherapistProfileModel
-  therapist;
+class _TherapistCard extends StatelessWidget {
+  final TherapistProfileModel therapist;
 
   final bool isFavoriteUpdating;
 
@@ -981,24 +1000,20 @@ class _TherapistCard
 
   @override
   Widget build(BuildContext context) {
-    final theme =
-        Theme.of(context);
+    final theme = Theme.of(context);
 
-    final photoUrl =
-        UrlHelper.buildFileUrl(
+    final photoUrl = UrlHelper.buildFileUrl(
       therapist.photoUrl,
     );
 
-    final hasPhoto =
-        photoUrl.isNotEmpty;
+    final hasPhoto = photoUrl.isNotEmpty;
 
     final name = _safeText(
       therapist.fullName,
       'Специалист',
     );
 
-    final qualification =
-        _safeText(
+    final qualification = _safeText(
       therapist.qualification,
       'Квалификация не указана',
     );
@@ -1007,8 +1022,7 @@ class _TherapistCard
       hasShadow: false,
       onTap: onTap,
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
@@ -1017,74 +1031,46 @@ class _TherapistCard
                 hasPhoto: hasPhoto,
               ),
               const SizedBox(
-                width:
-                    AppSpacing.md,
+                width: AppSpacing.md,
               ),
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment
-                          .start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       name,
                       maxLines: 2,
-                      overflow:
-                          TextOverflow
-                              .ellipsis,
-                      style: theme
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(
-                        fontWeight:
-                            FontWeight
-                                .w800,
-                        letterSpacing:
-                            -0.45,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.45,
                       ),
                     ),
                     const SizedBox(
-                      height:
-                          AppSpacing
-                              .xs,
+                      height: AppSpacing.xs,
                     ),
                     Text(
                       qualification,
                       maxLines: 2,
-                      overflow:
-                          TextOverflow
-                              .ellipsis,
-                      style: theme
-                          .textTheme
-                          .bodyMedium
-                          ?.copyWith(
-                        color: theme
-                            .colorScheme
-                            .onSurfaceVariant,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(
-                width:
-                    AppSpacing.xs,
+                width: AppSpacing.xs,
               ),
               _FavoriteIconButton(
-                isFavorite:
-                    therapist
-                        .isFavorite,
-                isLoading:
-                    isFavoriteUpdating,
-                onPressed:
-                    onToggleFavorite,
+                isFavorite: therapist.isFavorite,
+                isLoading: isFavoriteUpdating,
+                onPressed: onToggleFavorite,
               ),
               Icon(
-                Icons
-                    .chevron_right_rounded,
-                color: theme
-                    .colorScheme
-                    .onSurfaceVariant,
+                Icons.chevron_right_rounded,
+                color: theme.colorScheme.onSurfaceVariant,
                 size: 24,
               ),
             ],
@@ -1092,31 +1078,21 @@ class _TherapistCard
           const SizedBox(
             height: AppSpacing.md,
           ),
-
           _TherapistRatingSummary(
-            averageRating:
-                therapist.averageRating,
-            ratingsCount:
-                therapist.ratingsCount,
+            averageRating: therapist.averageRating,
+            ratingsCount: therapist.ratingsCount,
           ),
-          if (therapist
-              .specializations
-              .isNotEmpty) ...[
+          if (therapist.specializations.isNotEmpty) ...[
             const SizedBox(
-              height:
-                  AppSpacing.lg,
+              height: AppSpacing.lg,
             ),
             Wrap(
-              spacing:
-                  AppSpacing.sm,
-              runSpacing:
-                  AppSpacing.sm,
-              children: therapist
-                  .specializations
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              children: therapist.specializations
                   .take(4)
                   .map(
-                    (item) =>
-                        _Chip(
+                    (item) => _Chip(
                       text: item,
                     ),
                   )
@@ -1129,52 +1105,25 @@ class _TherapistCard
           _TherapistInfoPanel(
             children: [
               _InfoLine(
-                icon:
-                    Icons
-                        .location_on_outlined,
+                icon: Icons.location_on_outlined,
                 text: _safeText(
                   therapist.city,
                   'Город не указан',
                 ),
               ),
               _InfoLine(
-                icon:
-                    Icons
-                        .payments_outlined,
-                text:
-                    therapist.price ==
-                                null ||
-                            therapist
-                                .price!
-                                .trim()
-                                .isEmpty
-                        ? 'Цена не указана'
-                        : therapist
-                            .price!
-                            .trim(),
+                icon: Icons.payments_outlined,
+                text: therapist.price == null || therapist.price!.trim().isEmpty
+                    ? 'Цена не указана'
+                    : therapist.price!.trim(),
               ),
               _InfoLine(
-                icon:
-                    Icons
-                        .laptop_mac_rounded,
-                text:
-                    therapist
-                                .onlineAvailable ==
-                            true
-                        ? 'Онлайн'
-                        : 'Очно / по договоренности',
+                icon: Icons.laptop_mac_rounded,
+                text: therapist.onlineAvailable == true
+                    ? 'Онлайн'
+                    : 'Очно / по договоренности',
               ),
             ],
-          ),
-          const SizedBox(
-            height: AppSpacing.lg,
-          ),
-          AppButton(
-            text: 'Подробнее',
-            variant:
-                AppButtonVariant
-                    .secondary,
-            onPressed: onTap,
           ),
         ],
       ),
@@ -1185,8 +1134,7 @@ class _TherapistCard
     String? value,
     String fallback,
   ) {
-    if (value == null ||
-        value.trim().isEmpty) {
+    if (value == null || value.trim().isEmpty) {
       return fallback;
     }
 
@@ -1194,8 +1142,7 @@ class _TherapistCard
   }
 }
 
-class _TherapistRatingSummary
-    extends StatelessWidget {
+class _TherapistRatingSummary extends StatelessWidget {
   final double? averageRating;
   final int ratingsCount;
 
@@ -1208,17 +1155,13 @@ class _TherapistRatingSummary
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final hasRating =
-        averageRating != null &&
-        ratingsCount > 0;
+    final hasRating = averageRating != null && ratingsCount > 0;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(
-          hasRating
-              ? Icons.star_rounded
-              : Icons.star_border_rounded,
+          hasRating ? Icons.star_rounded : Icons.star_border_rounded,
           size: 19,
           color: theme.colorScheme.primary,
         ),
@@ -1226,17 +1169,11 @@ class _TherapistRatingSummary
           width: AppSpacing.xs,
         ),
         Text(
-          hasRating
-              ? averageRating!.toStringAsFixed(1)
-              : 'Нет оценок',
-          style: theme
-              .textTheme
-              .bodyMedium
-              ?.copyWith(
+          hasRating ? averageRating!.toStringAsFixed(1) : 'Нет оценок',
+          style: theme.textTheme.bodyMedium?.copyWith(
             color: hasRating
                 ? theme.colorScheme.onSurface
-                : theme.colorScheme
-                    .onSurfaceVariant,
+                : theme.colorScheme.onSurfaceVariant,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -1246,12 +1183,8 @@ class _TherapistRatingSummary
           ),
           Text(
             '· ${_formatRatingsCount(ratingsCount)}',
-            style: theme
-                .textTheme
-                .bodySmall
-                ?.copyWith(
-              color: theme.colorScheme
-                  .onSurfaceVariant,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -1266,8 +1199,7 @@ class _TherapistRatingSummary
     final lastTwoDigits = count % 100;
     final lastDigit = count % 10;
 
-    if (lastTwoDigits >= 11 &&
-        lastTwoDigits <= 14) {
+    if (lastTwoDigits >= 11 && lastTwoDigits <= 14) {
       return '$count оценок';
     }
 
@@ -1275,8 +1207,7 @@ class _TherapistRatingSummary
       return '$count оценка';
     }
 
-    if (lastDigit >= 2 &&
-        lastDigit <= 4) {
+    if (lastDigit >= 2 && lastDigit <= 4) {
       return '$count оценки';
     }
 
@@ -1284,8 +1215,7 @@ class _TherapistRatingSummary
   }
 }
 
-class _FavoriteIconButton
-    extends StatelessWidget {
+class _FavoriteIconButton extends StatelessWidget {
   final bool isFavorite;
   final bool isLoading;
   final VoidCallback onPressed;
@@ -1298,48 +1228,32 @@ class _FavoriteIconButton
 
   @override
   Widget build(BuildContext context) {
-    final theme =
-        Theme.of(context);
+    final theme = Theme.of(context);
 
     return IconButton(
-      tooltip:
-          isFavorite
-              ? 'Удалить из закладок'
-              : 'Добавить в закладки',
-      onPressed:
-          isLoading
-              ? null
-              : onPressed,
-      icon:
-          isLoading
-              ? SizedBox(
-                  width: 20,
-                  height: 20,
-                  child:
-                      CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: theme
-                        .colorScheme
-                        .primary,
-                  ),
-                )
-              : Icon(
-                  isFavorite
-                      ? Icons
-                          .bookmark_rounded
-                      : Icons
-                          .bookmark_border_rounded,
-                  color: theme
-                      .colorScheme
-                      .primary,
-                  size: 23,
-                ),
+      tooltip: isFavorite ? 'Удалить из закладок' : 'Добавить в закладки',
+      onPressed: isLoading ? null : onPressed,
+      icon: isLoading
+          ? SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: theme.colorScheme.primary,
+              ),
+            )
+          : Icon(
+              isFavorite
+                  ? Icons.bookmark_rounded
+                  : Icons.bookmark_border_rounded,
+              color: theme.colorScheme.primary,
+              size: 23,
+            ),
     );
   }
 }
 
-class _TherapistAvatar
-    extends StatelessWidget {
+class _TherapistAvatar extends StatelessWidget {
   final String photoUrl;
   final bool hasPhoto;
 
@@ -1350,54 +1264,36 @@ class _TherapistAvatar
 
   @override
   Widget build(BuildContext context) {
-    final theme =
-        Theme.of(context);
+    final theme = Theme.of(context);
 
     return Container(
       width: 72,
       height: 72,
-      padding:
-          const EdgeInsets.all(3),
+      padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: theme
-            .colorScheme.primary
-            .withOpacity(0.10),
+        color: theme.colorScheme.primary.withOpacity(0.10),
         border: Border.all(
-          color: theme
-              .colorScheme.primary
-              .withOpacity(0.12),
+          color: theme.colorScheme.primary.withOpacity(0.12),
           width: 1,
         ),
       ),
       child: CircleAvatar(
-        backgroundColor: theme
-            .colorScheme.primary
-            .withOpacity(0.10),
-        backgroundImage:
-            hasPhoto
-                ? NetworkImage(
-                    photoUrl,
-                  )
-                : null,
-        child:
-            hasPhoto
-                ? null
-                : Icon(
-                    Icons
-                        .person_outline_rounded,
-                    color: theme
-                        .colorScheme
-                        .primary,
-                    size: 32,
-                  ),
+        backgroundColor: theme.colorScheme.primary.withOpacity(0.10),
+        backgroundImage: hasPhoto ? NetworkImage(photoUrl) : null,
+        child: hasPhoto
+            ? null
+            : Icon(
+                Icons.person_outline_rounded,
+                color: theme.colorScheme.primary,
+                size: 32,
+              ),
       ),
     );
   }
 }
 
-class _TherapistInfoPanel
-    extends StatelessWidget {
+class _TherapistInfoPanel extends StatelessWidget {
   final List<Widget> children;
 
   const _TherapistInfoPanel({
@@ -1406,51 +1302,40 @@ class _TherapistInfoPanel
 
   @override
   Widget build(BuildContext context) {
-    final isDark =
-        Theme.of(context).brightness ==
-        Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final backgroundColor =
-        isDark
-            ? AppColors
-                .darkSurfaceSoft
-                .withOpacity(0.72)
-            : AppColors.white
-                .withOpacity(0.52);
+    final backgroundColor = isDark
+        ? AppColors.darkSurfaceSoft.withOpacity(0.72)
+        : AppColors.white.withOpacity(0.52);
 
     final borderColor =
-        isDark
-            ? AppColors.darkBorder
-            : AppColors.white
-                .withOpacity(0.78);
+        isDark ? AppColors.darkBorder : AppColors.white.withOpacity(0.78);
 
     return Container(
-      padding:
-          const EdgeInsets.all(
-        AppSpacing.md,
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.md,
       ),
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius:
-            AppRadius.large,
+        borderRadius: AppRadius.large,
         border: Border.all(
           color: borderColor,
           width: 1,
         ),
       ),
-      child: Column(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          for (
-            int i = 0;
-            i < children.length;
-            i++
-          ) ...[
-            children[i],
-            if (i !=
-                children.length - 1)
+          for (int i = 0; i < children.length; i++) ...[
+            Flexible(
+              fit: FlexFit.loose,
+              child: children[i],
+            ),
+            if (i != children.length - 1)
               const SizedBox(
-                height:
-                    AppSpacing.sm,
+                width: AppSpacing.md,
               ),
           ],
         ],
@@ -1468,39 +1353,26 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme =
-        Theme.of(context);
+    final theme = Theme.of(context);
 
-    final isDark =
-        theme.brightness ==
-        Brightness.dark;
+    final isDark = theme.brightness == Brightness.dark;
 
-    final backgroundColor =
-        theme.colorScheme.primary
-            .withOpacity(
+    final backgroundColor = theme.colorScheme.primary.withOpacity(
       isDark ? 0.16 : 0.10,
     );
 
-    final borderColor =
-        theme.colorScheme.primary
-            .withOpacity(
+    final borderColor = theme.colorScheme.primary.withOpacity(
       isDark ? 0.18 : 0.12,
     );
 
     return Container(
-      padding:
-          const EdgeInsets
-              .symmetric(
-        horizontal:
-            AppSpacing.md,
-        vertical:
-            AppSpacing.sm,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
       ),
-      decoration:
-          BoxDecoration(
+      decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius:
-            AppRadius.large,
+        borderRadius: AppRadius.large,
         border: Border.all(
           color: borderColor,
           width: 1,
@@ -1508,13 +1380,9 @@ class _Chip extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: theme
-            .textTheme.bodySmall
-            ?.copyWith(
-          color: theme
-              .colorScheme.primary,
-          fontWeight:
-              FontWeight.w700,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.primary,
+          fontWeight: FontWeight.w700,
           letterSpacing: -0.05,
         ),
       ),
@@ -1522,8 +1390,7 @@ class _Chip extends StatelessWidget {
   }
 }
 
-class _InfoLine
-    extends StatelessWidget {
+class _InfoLine extends StatelessWidget {
   final IconData icon;
   final String text;
 
@@ -1534,28 +1401,25 @@ class _InfoLine
 
   @override
   Widget build(BuildContext context) {
-    final theme =
-        Theme.of(context);
+    final theme = Theme.of(context);
 
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         _InfoIcon(
           icon: icon,
         ),
         const SizedBox(
-          width: AppSpacing.sm,
+          width: AppSpacing.xs,
         ),
-        Expanded(
+        Flexible(
           child: Text(
             text,
-            maxLines: 2,
-            overflow:
-                TextOverflow.ellipsis,
-            style: theme
-                .textTheme.bodyMedium
-                ?.copyWith(
-              fontWeight:
-                  FontWeight.w500,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.w600,
               letterSpacing: -0.05,
             ),
           ),
@@ -1565,8 +1429,7 @@ class _InfoLine
   }
 }
 
-class _InfoIcon
-    extends StatelessWidget {
+class _InfoIcon extends StatelessWidget {
   final IconData icon;
 
   const _InfoIcon({
@@ -1575,70 +1438,45 @@ class _InfoIcon
 
   @override
   Widget build(BuildContext context) {
-    final theme =
-        Theme.of(context);
+    final theme = Theme.of(context);
 
-    return Container(
-      width: 28,
-      height: 28,
-      decoration: BoxDecoration(
-        color: theme
-            .colorScheme.primary
-            .withOpacity(0.10),
-        borderRadius:
-            BorderRadius.circular(
-          10,
-        ),
-      ),
-      child: Icon(
-        icon,
-        size: 15,
-        color: theme
-            .colorScheme.primary,
-      ),
+    return Icon(
+      icon,
+      size: 16,
+      color: theme.colorScheme.onSurfaceVariant,
     );
   }
 }
 
-class _EmptyFavoritesState
-    extends StatelessWidget {
+class _EmptyFavoritesState extends StatelessWidget {
   const _EmptyFavoritesState();
 
   @override
   Widget build(BuildContext context) {
-    final theme =
-        Theme.of(context);
+    final theme = Theme.of(context);
 
     return AppCard(
       hasShadow: false,
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const _EmptyIcon(
-            icon:
-                Icons
-                    .bookmark_border_rounded,
+            icon: Icons.bookmark_border_rounded,
           ),
           const SizedBox(
             height: AppSpacing.md,
           ),
           Text(
             'В закладках пока пусто',
-            style: theme
-                .textTheme.titleLarge,
+            style: theme.textTheme.titleLarge,
           ),
           const SizedBox(
             height: AppSpacing.sm,
           ),
           Text(
             'Добавляй подходящих специалистов в закладки, чтобы быстро находить их позже.',
-            style: theme
-                .textTheme.bodyMedium
-                ?.copyWith(
-              color: theme
-                  .colorScheme
-                  .onSurfaceVariant,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ],
@@ -1647,45 +1485,35 @@ class _EmptyFavoritesState
   }
 }
 
-class _EmptyTherapistsState
-    extends StatelessWidget {
+class _EmptyTherapistsState extends StatelessWidget {
   const _EmptyTherapistsState();
 
   @override
   Widget build(BuildContext context) {
-    final theme =
-        Theme.of(context);
+    final theme = Theme.of(context);
 
     return AppCard(
       hasShadow: false,
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const _EmptyIcon(
-            icon:
-                Icons
-                    .person_search_rounded,
+            icon: Icons.person_search_rounded,
           ),
           const SizedBox(
             height: AppSpacing.md,
           ),
           Text(
             'Пока нет одобренных специалистов',
-            style: theme
-                .textTheme.titleLarge,
+            style: theme.textTheme.titleLarge,
           ),
           const SizedBox(
             height: AppSpacing.sm,
           ),
           Text(
             'Когда администратор одобрит анкеты специалистов, они появятся здесь.',
-            style: theme
-                .textTheme.bodyMedium
-                ?.copyWith(
-              color: theme
-                  .colorScheme
-                  .onSurfaceVariant,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ],
@@ -1694,45 +1522,35 @@ class _EmptyTherapistsState
   }
 }
 
-class _NoTherapistSearchResultsState
-    extends StatelessWidget {
+class _NoTherapistSearchResultsState extends StatelessWidget {
   const _NoTherapistSearchResultsState();
 
   @override
   Widget build(BuildContext context) {
-    final theme =
-        Theme.of(context);
+    final theme = Theme.of(context);
 
     return AppCard(
       hasShadow: false,
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const _EmptyIcon(
-            icon:
-                Icons
-                    .search_off_rounded,
+            icon: Icons.search_off_rounded,
           ),
           const SizedBox(
             height: AppSpacing.md,
           ),
           Text(
             'Специалисты не найдены',
-            style: theme
-                .textTheme.titleLarge,
+            style: theme.textTheme.titleLarge,
           ),
           const SizedBox(
             height: AppSpacing.sm,
           ),
           Text(
             'Попробуй изменить поиск, город или формат консультации.',
-            style: theme
-                .textTheme.bodyMedium
-                ?.copyWith(
-              color: theme
-                  .colorScheme
-                  .onSurfaceVariant,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ],
@@ -1741,8 +1559,7 @@ class _NoTherapistSearchResultsState
   }
 }
 
-class _EmptyIcon
-    extends StatelessWidget {
+class _EmptyIcon extends StatelessWidget {
   final IconData icon;
 
   const _EmptyIcon({
@@ -1751,29 +1568,22 @@ class _EmptyIcon
 
   @override
   Widget build(BuildContext context) {
-    final theme =
-        Theme.of(context);
+    final theme = Theme.of(context);
 
     return Container(
       width: 42,
       height: 42,
       decoration: BoxDecoration(
-        color: theme
-            .colorScheme.primary
-            .withOpacity(0.11),
-        borderRadius:
-            AppRadius.large,
+        color: theme.colorScheme.primary.withOpacity(0.11),
+        borderRadius: AppRadius.large,
         border: Border.all(
-          color: theme
-              .colorScheme.primary
-              .withOpacity(0.10),
+          color: theme.colorScheme.primary.withOpacity(0.10),
           width: 1,
         ),
       ),
       child: Icon(
         icon,
-        color: theme
-            .colorScheme.primary,
+        color: theme.colorScheme.primary,
         size: 21,
       ),
     );

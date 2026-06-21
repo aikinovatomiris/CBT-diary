@@ -848,10 +848,10 @@ class _CalendarIconButton extends StatelessWidget {
             boxShadow: [
               BoxShadow(
                 color: isDark
-                    ? AppColors.darkShadow.withOpacity(0.14)
-                    : AppColors.lightShadow.withOpacity(0.45),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
+                    ? AppColors.darkShadow.withOpacity(0.05)
+                    : AppColors.lightShadow.withOpacity(0.12),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
