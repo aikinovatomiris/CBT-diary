@@ -13,3 +13,4 @@ openai
 python-multipart
 google-auth
 requests
+pytest>=8.0,<10.0
