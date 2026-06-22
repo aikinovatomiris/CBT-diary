@@ -102,9 +102,6 @@ class AdminService {
       final response = await ApiClient.patch(
         '/admin/therapists/$profileId/reject',
         data: {
-          // ВАЖНО:
-          // backend AdminRejectTherapistRequest ожидает поле reason,
-          // а не rejection_reason.
           'reason': trimmedReason,
         },
       );

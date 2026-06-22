@@ -683,7 +683,7 @@ class _DateFilterModeSheet extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              'Покажи записи за один день или за выбранный период.',
+              'Поиск записей за один день или за выбранный период.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
